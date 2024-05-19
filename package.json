@@ -1,0 +1,46 @@
+{
+  "name": "coc-oxc",
+  "version": "0.0.0-development",
+  "description": "Oxc extension for coc.nvim",
+  "author": "rzvxa <rzvxa@protonmail.com>",
+  "license": "MIT",
+  "main": "lib/index.js",
+  "keywords": [
+    "coc.nvim"
+  ],
+  "engines": {
+    "coc": "^0.0.82"
+  },
+  "scripts": {
+    "watch": "node esbuild.mjs --watch",
+    "build": "node esbuild.mjs",
+    "prepare": "node esbuild.mjs"
+  },
+  "devDependencies": {
+    "coc.nvim": "^0.0.83-next.18",
+    "esbuild": "^0.19.8",
+    "typescript": "^5.3.3"
+  },
+  "activationEvents": [
+    "*"
+  ],
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "coc-oxc configuration",
+      "properties": {
+        "coc-oxc.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable coc-oxc extension"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "coc-oxc.Command",
+        "title": "coc-oxc command title"
+      }
+    ]
+  }
+}
