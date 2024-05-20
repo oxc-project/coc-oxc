@@ -2,7 +2,7 @@
   "name": "coc-oxc",
   "version": "0.0.0-development",
   "description": "Oxc extension for coc.nvim",
-  "author": "rzvxa <rzvxa@protonmail.com>",
+  "author": "Boshen and oxc contributors",
   "license": "MIT",
   "main": "lib/index.js",
   "keywords": ["coc.nvim"],
