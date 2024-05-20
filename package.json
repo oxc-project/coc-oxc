@@ -29,10 +29,15 @@
       "type": "object",
       "title": "coc-oxc configuration",
       "properties": {
-        "coc-oxc.enabled": {
+        "oxc.enabled": {
           "type": "boolean",
           "default": true,
           "description": "Enable coc-oxc extension"
+        },
+        "oxc.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the `oxc_language_server` binary"
         }
       }
     },
