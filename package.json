@@ -12,12 +12,14 @@
   "scripts": {
     "watch": "node esbuild.mjs --watch",
     "build": "node esbuild.mjs",
+    "lint": "oxlint --deny-warnings --import-plugin -D correctness -D perf",
     "prepare": "node esbuild.mjs"
   },
   "devDependencies": {
     "coc.nvim": "^0.0.83-next.18",
     "esbuild": "^0.19.8",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "oxlint": "^0.3.5"
   },
   "activationEvents": [
     "onLanguage:javascript",
