@@ -1,3 +1,4 @@
+// Some parts of this extension are inspired by <https://github.com/fannheyward/coc-biome/blob/master/src/index.ts#L50>
 import { existsSync } from "node:fs";
 import { join } from "path";
 import {
@@ -5,6 +6,7 @@ import {
   ExtensionContext,
   LanguageClient,
   LanguageClientOptions,
+  OutputChannel,
   ServerOptions,
   commands,
   services,
@@ -14,9 +16,51 @@ import {
 
 type Optional<T> = T | null;
 
+type CommandGeneralAction = (
+  channel: OutputChannel,
+  traceChannel: OutputChannel
+) => Promise<void> | void;
+
+type CommandClientAction = (client: LanguageClient) => Promise<void> | void;
+
 const CLIENT_ID = "coc-oxc";
 const CLIENT_NAME = "oxc";
 const OUTPUT_CHANNEL = "oxc";
+const TRACE_CHANNEL = "oxc-trace";
+
+const GENERAL_COMMANDS: { id: string; action: CommandGeneralAction }[] = [
+  {
+    id: "oxc.showOutputChannel",
+    action: (channel: OutputChannel) => {
+      channel.show();
+    },
+  },
+  {
+    id: "oxc.showTraceOutputChannel",
+    action: (_, channel: OutputChannel) => {
+      channel.show();
+    },
+  },
+];
+
+const CLIENT_COMMANDS: { id: string; action: CommandClientAction }[] = [
+  {
+    id: "oxc.restartServer",
+    action: async (client: LanguageClient) => {
+      if (!client) {
+        window.showErrorMessage("oxc client not found");
+        return;
+      }
+
+      try {
+        client.restart();
+        window.showInformationMessage("oxc server restarted.");
+      } catch (err) {
+        client.error("Restarting client failed", err);
+      }
+    },
+  },
+];
 
 /***
  * First checks for a user provided binary path in the `oxc.path` configuration.
@@ -58,18 +102,22 @@ function serverOptions(): ServerOptions {
   };
 }
 
-function createClient(): LanguageClient {
-  const outputChannel = window.createOutputChannel(OUTPUT_CHANNEL);
-
+function createClient(outputChannel: OutputChannel): LanguageClient {
   const clientOptions: LanguageClientOptions = {
     outputChannel,
     progressOnInitialization: true,
+    initializationOptions: {},
     documentSelector: [
-      { scheme: "file", language: "javascript" },
-      { scheme: "file", language: "javascriptreact" },
-      { scheme: "file", language: "typescript" },
-      { scheme: "file", language: "typescriptreact" },
-    ],
+      "typescript",
+      "javascript",
+      "typescriptreact",
+      "javascriptreact",
+      "vue",
+      "svelte",
+    ].map((language) => ({
+      language,
+      scheme: "file",
+    })),
   };
 
   return new LanguageClient(
@@ -80,26 +128,36 @@ function createClient(): LanguageClient {
   );
 }
 
+function configureClient(context: ExtensionContext, client: LanguageClient) {
+  context.subscriptions.push(
+    ...CLIENT_COMMANDS.map(({ id, action }) =>
+      commands.registerCommand(id, () => action(client))
+    )
+  );
+}
+
 export async function activate(context: ExtensionContext): Promise<void> {
   const enable = workspace.getConfiguration("oxc").get<boolean>("enable", true);
   if (!enable) {
     return;
   }
-  await window.showInformationMessage("coc-oxc activate!");
 
-  const restartCommand = commands.registerCommand(
-    "oxc.restartServer",
-    async () => {
-      await window.showInformationMessage("coc-oxc restart!");
-    }
+  const channel = window.createOutputChannel(OUTPUT_CHANNEL);
+  const traceChannel = window.createOutputChannel(TRACE_CHANNEL);
+
+  const println = (msg: unknown) => channel.appendLine(String(msg));
+
+  context.subscriptions.push(
+    ...GENERAL_COMMANDS.map(({ id, action }) =>
+      commands.registerCommand(id, () => action(channel, traceChannel))
+    )
   );
 
-  context.subscriptions.push(restartCommand);
-
   try {
-    const client = createClient();
+    const client = createClient(channel);
+    configureClient(context, client);
     context.subscriptions.push(services.registerLanguageClient(client));
   } catch (e: unknown) {
-    await window.showErrorMessage(String(e));
+    println(e);
   }
 }

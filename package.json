@@ -5,9 +5,7 @@
   "author": "rzvxa <rzvxa@protonmail.com>",
   "license": "MIT",
   "main": "lib/index.js",
-  "keywords": [
-    "coc.nvim"
-  ],
+  "keywords": ["coc.nvim"],
   "engines": {
     "coc": "^0.0.82"
   },
@@ -22,14 +20,19 @@
     "typescript": "^5.3.3"
   },
   "activationEvents": [
-    "*"
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact",
+    "onLanguage:vue",
+    "onLanguage:svelte"
   ],
   "contributes": {
     "configuration": {
       "type": "object",
       "title": "coc-oxc configuration",
       "properties": {
-        "oxc.enabled": {
+        "oxc.enable": {
           "type": "boolean",
           "default": true,
           "description": "Enable coc-oxc extension"
@@ -43,8 +46,19 @@
     },
     "commands": [
       {
-        "command": "coc-oxc.Command",
-        "title": "coc-oxc command title"
+        "command": "oxc.restartServer",
+        "title": "Restart Oxc Server",
+        "category": "Oxc"
+      },
+      {
+        "command": "oxc.showOutputChannel",
+        "title": "Show Output Channel",
+        "category": "Oxc"
+      },
+      {
+        "command": "oxc.showTraceOutputChannel",
+        "title": "Show Trace Output Channel",
+        "category": "Oxc"
       }
     ]
   }
