@@ -30,14 +30,27 @@
   "contributes": {
     "configuration": {
       "type": "object",
-      "title": "coc-oxc configuration",
+      "title": "oxc configuration",
       "properties": {
+        "oxc.run": {
+          "scope": "resource",
+          "type": "string",
+          "enum": ["onSave", "onType"],
+          "default": "onType",
+          "description": "Run the linter on save (onSave) or on type (onType)"
+        },
         "oxc.enable": {
           "type": "boolean",
           "default": true,
-          "description": "Enable coc-oxc extension"
+          "description": "enable oxc language server"
         },
-        "oxc.path": {
+        "oxc.configPath": {
+          "type": "string",
+          "scope": "window",
+          "default": ".eslintrc",
+          "description": "Path to ESlint configuration."
+        },
+        "oxc.binPath": {
           "type": "string",
           "default": "",
           "description": "Path to the `oxc_language_server` binary"

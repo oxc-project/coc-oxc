@@ -16,28 +16,17 @@ import {
 
 type Optional<T> = T | null;
 
-type CommandGeneralAction = (
-  channel: OutputChannel,
-  traceChannel: OutputChannel
-) => Promise<void> | void;
-
+type CommandGeneralAction = (channel: OutputChannel) => Promise<void> | void;
 type CommandClientAction = (client: LanguageClient) => Promise<void> | void;
 
 const CLIENT_ID = "coc-oxc";
 const CLIENT_NAME = "oxc";
 const OUTPUT_CHANNEL = "oxc";
-const TRACE_CHANNEL = "oxc-trace";
 
 const GENERAL_COMMANDS: { id: string; action: CommandGeneralAction }[] = [
   {
     id: "oxc.showOutputChannel",
     action: (channel: OutputChannel) => {
-      channel.show();
-    },
-  },
-  {
-    id: "oxc.showTraceOutputChannel",
-    action: (_, channel: OutputChannel) => {
       channel.show();
     },
   },
@@ -63,15 +52,15 @@ const CLIENT_COMMANDS: { id: string; action: CommandClientAction }[] = [
 ];
 
 /***
- * First checks for a user provided binary path in the `oxc.path` configuration.
+ * First checks for a user provided binary path in the `oxc.binPath` configuration.
  * Then tries to find a binary from workspace/node_modules/.bin/oxc_language_server,
  * TODO: It should also check for a global installation here!
  * Otherwise returns `null`.
  * @returns The relavant `oxc_language_server` binary for this workspace.
  ***/
 function findBinary(): Optional<string> {
-  const cfg = workspace.getConfiguration("biome");
-  let bin = cfg.get<string>("bin", "");
+  const cfg = workspace.getConfiguration("oxc");
+  let bin = cfg.get<string>("binPath", "");
   if (bin && existsSync(bin)) {
     return bin;
   }
@@ -83,7 +72,11 @@ function findBinary(): Optional<string> {
 function serverOptions(): ServerOptions {
   const command = findBinary();
   if (!command) {
-    throw "Failed to find `oxc_language_server` binary.";
+    throw [
+      `Failed to find "oxc_language_server" binary in the workspace(${workspace.root}).`,
+      'You need to either have "oxlint" npm package installed in the root directory of your workspace,',
+      'Or set the "oxc.binPath" in your "coc-settings.json".',
+    ].join("\n");
   }
   const run: Executable = {
     command,
@@ -103,10 +96,10 @@ function serverOptions(): ServerOptions {
 }
 
 function createClient(outputChannel: OutputChannel): LanguageClient {
+  let settings: any = workspace.getConfiguration("oxc");
   const clientOptions: LanguageClientOptions = {
     outputChannel,
     progressOnInitialization: true,
-    initializationOptions: {},
     documentSelector: [
       "typescript",
       "javascript",
@@ -118,6 +111,10 @@ function createClient(outputChannel: OutputChannel): LanguageClient {
       language,
       scheme: "file",
     })),
+
+    initializationOptions: {
+      settings,
+    },
   };
 
   return new LanguageClient(
@@ -143,13 +140,12 @@ export async function activate(context: ExtensionContext): Promise<void> {
   }
 
   const channel = window.createOutputChannel(OUTPUT_CHANNEL);
-  const traceChannel = window.createOutputChannel(TRACE_CHANNEL);
 
-  const println = (msg: unknown) => channel.appendLine(String(msg));
+  const error = (msg: unknown) => channel.appendLine(`[ERROR]: ${msg}`);
 
   context.subscriptions.push(
     ...GENERAL_COMMANDS.map(({ id, action }) =>
-      commands.registerCommand(id, () => action(channel, traceChannel))
+      commands.registerCommand(id, () => action(channel))
     )
   );
 
@@ -158,6 +154,6 @@ export async function activate(context: ExtensionContext): Promise<void> {
     configureClient(context, client);
     context.subscriptions.push(services.registerLanguageClient(client));
   } catch (e: unknown) {
-    println(e);
+    error(e);
   }
 }
