@@ -8,10 +8,10 @@ Oxc extension for coc.nvim
 
 ## Configurations
 
-* `oxc.run`[`onSave`, `onType`]: Run the linter on save or on type (default: `onType`).
-* `oxc.enable`[boolean]: Enable oxc language server(default: `true`).
-* `oxc.configPath`[string]: Path to ESlint configuration.(default: `.eslintrc`).
-* `oxc.binPath`[string]: Path to the `oxc_language_server` binary(default: `searches in the workspace for a viable binary`).
+* `oxc.run`: Run the linter on save `onSave` or on type `onType`(default: `onType`).
+* `oxc.enable`: Enable oxc language server(default: `true`).
+* `oxc.configPath`: Path to ESlint configuration.(default: `.eslintrc`).
+* `oxc.binPath`: Path to the `oxc_language_server` binary(default: `searches in the workspace for a viable binary`).
 
 ## Commands
 
