@@ -44,7 +44,7 @@
         "oxc.enable": {
           "type": "boolean",
           "default": true,
-          "description": "enable oxc language server"
+          "description": "Enable oxc language server"
         },
         "oxc.configPath": {
           "type": "string",
