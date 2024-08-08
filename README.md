@@ -1,6 +1,6 @@
 # coc-oxc
 
-Oxc extension for coc.nvim
+[Oxc](https://github.com/oxc-project/oxc) extension for coc.nvim
 
 ## Install
 

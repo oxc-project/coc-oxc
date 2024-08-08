@@ -2,10 +2,10 @@ name: Release
 
 on:
   push:
-    # branches:
-    #   - main
-    # paths:
-    #   - package.json
+    branches:
+      - main
+    paths:
+      - package.json
 
 jobs:
   check:
@@ -31,8 +31,8 @@ jobs:
           echo "Version change found! New version: ${{ steps.version.outputs.version }} (${{ steps.version.outputs.version_type }})"
 
   release:
-    # needs: check
-    # if: needs.check.outputs.version_changed == 'true'
+    needs: check
+    if: needs.check.outputs.version_changed == 'true'
 
     name: Release
     runs-on: ubuntu-latest
