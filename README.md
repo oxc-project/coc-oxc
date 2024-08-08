@@ -6,13 +6,18 @@ Oxc extension for coc.nvim
 
 `:CocInstall coc-oxc`
 
-## Keymaps
+## Configurations
 
-`nmap <silent> <C-l> <Plug>(coc-coc-oxc-keymap)`
+* `oxc.run`: Run the linter on save `onSave` or on type `onType`(default: `onType`).
+* `oxc.enable`: Enable oxc language server(default: `true`).
+* `oxc.configPath`: Path to ESlint configuration.(default: `.eslintrc`).
+* `oxc.binPath`: Path to the `oxc_language_server` binary(default: `searches in the workspace for a viable binary`).
 
-## Lists
+## Commands
 
-`:CocList demo_list`
+* `oxc.restartServer`: Restart Oxc Server.
+* `oxc.showOutputChannel`: Show Output Channel.
+* `oxc.showTraceOutputChannel`: Show Trace Output Channel.
 
 ## License
 
