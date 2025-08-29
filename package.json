@@ -9,8 +9,12 @@
     "url": "git+https://github.com/oxc-project/coc-oxc.git"
   },
   "main": "lib/index.js",
-  "files": ["lib/**"],
-  "keywords": ["coc.nvim"],
+  "files": [
+    "lib/**"
+  ],
+  "keywords": [
+    "coc.nvim"
+  ],
   "engines": {
     "coc": "^0.0.82"
   },
@@ -21,10 +25,10 @@
     "prepare": "node esbuild.mjs"
   },
   "devDependencies": {
-    "coc.nvim": "^0.0.83-next.18",
-    "esbuild": "^0.25.0",
-    "typescript": "^5.3.3",
-    "oxlint": "^1.0.0"
+    "coc.nvim": "0.0.83-next.24",
+    "esbuild": "^0.25.9",
+    "oxlint": "^1.13.0",
+    "typescript": "^5.9.2"
   },
   "activationEvents": [
     "onLanguage:javascript",
@@ -42,7 +46,10 @@
         "oxc.run": {
           "scope": "resource",
           "type": "string",
-          "enum": ["onSave", "onType"],
+          "enum": [
+            "onSave",
+            "onType"
+          ],
           "default": "onType",
           "description": "Run the linter on save (onSave) or on type (onType)"
         },
@@ -81,5 +88,6 @@
         "category": "Oxc"
       }
     ]
-  }
+  },
+  "packageManager": "pnpm@10.15.0"
 }
