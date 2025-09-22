@@ -59,10 +59,10 @@
           "description": "Enable oxc language server"
         },
         "oxc.configPath": {
-          "type": "string",
-          "scope": "window",
-          "default": ".eslintrc",
-          "description": "Path to ESlint configuration."
+          "type": ["string", "null"],
+          "scope": "resource",
+          "default": null,
+          "description": "Path to oxlint configuration. Keep it empty to enable nested configuration."
         },
         "oxc.binPath": {
           "type": "string",
