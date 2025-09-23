@@ -21,13 +21,14 @@
   "scripts": {
     "watch": "node esbuild.mjs --watch",
     "build": "node esbuild.mjs",
-    "lint": "oxlint --deny-warnings --import-plugin -D correctness -D perf",
+    "lint": "oxlint --type-aware --deny-warnings --import-plugin -D correctness -D perf",
     "prepare": "node esbuild.mjs"
   },
   "devDependencies": {
     "coc.nvim": "0.0.83-next.24",
-    "esbuild": "^0.25.9",
-    "oxlint": "^1.13.0",
+    "esbuild": "^0.25.10",
+    "oxlint": "^1.16.0",
+    "oxlint-tsgolint": "^0.2.0",
     "typescript": "^5.9.2"
   },
   "activationEvents": [
@@ -59,7 +60,10 @@
           "description": "Enable oxc language server"
         },
         "oxc.configPath": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "scope": "resource",
           "default": null,
           "description": "Path to oxlint configuration. Keep it empty to enable nested configuration."

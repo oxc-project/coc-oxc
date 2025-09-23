@@ -37,13 +37,13 @@ const CLIENT_COMMANDS: { id: string; action: CommandClientAction }[] = [
     id: "oxc.restartServer",
     action: async (client: LanguageClient) => {
       if (!client) {
-        window.showErrorMessage("oxc client not found");
+        await window.showErrorMessage("oxc client not found");
         return;
       }
 
       try {
-        client.restart();
-        window.showInformationMessage("oxc server restarted.");
+        await client.restart();
+        await window.showInformationMessage("oxc server restarted.");
       } catch (err) {
         client.error("Restarting client failed", err);
       }
@@ -144,7 +144,7 @@ function configureClient(context: ExtensionContext, client: LanguageClient) {
     const settings: any = JSON.parse(
       JSON.stringify(workspace.getConfiguration("oxc"))
     );
-    client.sendNotification("workspace/didChangeConfiguration", { settings, });
+    void client.sendNotification("workspace/didChangeConfiguration", { settings });
   });
 }
 
@@ -156,7 +156,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
 
   const channel = window.createOutputChannel(OUTPUT_CHANNEL);
 
-  const error = (msg: unknown) => channel.appendLine(`[ERROR]: ${msg}`);
+  const error = (msg: any) => channel.appendLine(`[ERROR]: ${msg}`);
 
   context.subscriptions.push(
     ...GENERAL_COMMANDS.map(({ id, action }) =>
