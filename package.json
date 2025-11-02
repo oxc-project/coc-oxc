@@ -28,7 +28,7 @@
     "coc.nvim": "0.0.83-next.24",
     "esbuild": "^0.25.10",
     "oxlint": "^1.16.0",
-    "oxlint-tsgolint": "^0.3.0",
+    "oxlint-tsgolint": "^0.4.0",
     "typescript": "^5.9.2"
   },
   "activationEvents": [
@@ -93,5 +93,5 @@
       }
     ]
   },
-  "packageManager": "pnpm@10.19.0"
+  "packageManager": "pnpm@10.20.0"
 }
