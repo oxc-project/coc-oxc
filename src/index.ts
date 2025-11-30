@@ -54,9 +54,8 @@ const CLIENT_COMMANDS: { id: string; action: CommandClientAction }[] = [
 /***
  * First checks for a user provided binary path in the `oxc.binPath` configuration.
  * Then tries to find a binary from workspace/node_modules/.bin/oxc_language_server,
- * TODO: It should also check for a global installation here!
  * Otherwise returns `null`.
- * @returns The relavant `oxc_language_server` binary for this workspace.
+ * @returns The relavant `oxlint` binary for this workspace.
  ***/
 function findBinary(): Optional<string> {
   const cfg = workspace.getConfiguration("oxc");
@@ -65,7 +64,7 @@ function findBinary(): Optional<string> {
     return bin;
   }
 
-  bin = join(workspace.root, "node_modules", ".bin", "oxc_language_server");
+  bin = join(workspace.root, "node_modules", ".bin", "oxlint");
   return existsSync(bin) ? bin : null;
 }
 
@@ -73,13 +72,14 @@ function serverOptions(): ServerOptions {
   const command = findBinary();
   if (!command) {
     throw [
-      `Failed to find "oxc_language_server" binary in the workspace(${workspace.root}).`,
+      `Failed to find "oxlint" binary in the workspace(${workspace.root}).`,
       'You need to either have "oxlint" npm package installed in the root directory of your workspace,',
       'Or set the "oxc.binPath" in your "coc-settings.json".',
     ].join("\n");
   }
   const run: Executable = {
     command,
+    args: ["--lsp"],
     options: {
       env: {
         ...process.env,
