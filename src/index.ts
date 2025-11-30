@@ -96,9 +96,7 @@ function serverOptions(): ServerOptions {
 }
 
 function createClient(outputChannel: OutputChannel): LanguageClient {
-  const settings: any = JSON.parse(
-    JSON.stringify(workspace.getConfiguration("oxc"))
-  );
+  const settings: any = JSON.parse(JSON.stringify(workspace.getConfiguration("oxc")));
   const clientOptions: LanguageClientOptions = {
     outputChannel,
     progressOnInitialization: true,
@@ -119,20 +117,13 @@ function createClient(outputChannel: OutputChannel): LanguageClient {
     },
   };
 
-  return new LanguageClient(
-    CLIENT_ID,
-    CLIENT_NAME,
-    serverOptions(),
-    clientOptions
-  );
+  return new LanguageClient(CLIENT_ID, CLIENT_NAME, serverOptions(), clientOptions);
 }
 
 function configureClient(context: ExtensionContext, client: LanguageClient) {
   // add client specific commands.
   context.subscriptions.push(
-    ...CLIENT_COMMANDS.map(({ id, action }) =>
-      commands.registerCommand(id, () => action(client))
-    )
+    ...CLIENT_COMMANDS.map(({ id, action }) => commands.registerCommand(id, () => action(client))),
   );
 
   // add events to handle config updates.
@@ -141,9 +132,7 @@ function configureClient(context: ExtensionContext, client: LanguageClient) {
       return;
     }
 
-    const settings: any = JSON.parse(
-      JSON.stringify(workspace.getConfiguration("oxc"))
-    );
+    const settings: any = JSON.parse(JSON.stringify(workspace.getConfiguration("oxc")));
     void client.sendNotification("workspace/didChangeConfiguration", { settings });
   });
 }
@@ -160,8 +149,8 @@ export async function activate(context: ExtensionContext): Promise<void> {
 
   context.subscriptions.push(
     ...GENERAL_COMMANDS.map(({ id, action }) =>
-      commands.registerCommand(id, () => action(channel))
-    )
+      commands.registerCommand(id, () => action(channel)),
+    ),
   );
 
   try {
