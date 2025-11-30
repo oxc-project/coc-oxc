@@ -47,7 +47,12 @@
       "type": "object",
       "title": "oxc configuration",
       "properties": {
-        "oxc.run": {
+        "oxc.oxlint.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable oxlint language server"
+        },
+        "oxc.oxlint.run": {
           "scope": "resource",
           "type": "string",
           "enum": [
@@ -55,14 +60,14 @@
             "onType"
           ],
           "default": "onType",
-          "description": "Run the linter on save (onSave) or on type (onType)"
+          "description": "Run oxlint on save (onSave) or on type (onType)"
         },
-        "oxc.enable": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable oxc language server"
+        "oxc.oxlint.binPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the `oxlint` binary"
         },
-        "oxc.configPath": {
+        "oxc.oxlint.configPath": {
           "type": [
             "string",
             "null"
@@ -71,28 +76,38 @@
           "default": null,
           "description": "Path to oxlint configuration. Keep it empty to enable nested configuration."
         },
-        "oxc.binPath": {
+        "oxc.oxfmt.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable oxfmt language server"
+        },
+        "oxc.oxfmt.binPath": {
           "type": "string",
           "default": "",
-          "description": "Path to the `oxc_language_server` binary"
+          "description": "Path to the `oxfmt` binary"
         }
       }
     },
     "commands": [
       {
-        "command": "oxc.restartServer",
-        "title": "Restart Oxc Server",
-        "category": "Oxc"
+        "command": "oxlint.restartServer",
+        "title": "Restart oxlint Server",
+        "category": "Oxlint"
       },
       {
-        "command": "oxc.showOutputChannel",
-        "title": "Show Output Channel",
-        "category": "Oxc"
+        "command": "oxlint.showOutputChannel",
+        "title": "Show oxlint Output Channel",
+        "category": "Oxlint"
       },
       {
-        "command": "oxc.showTraceOutputChannel",
-        "title": "Show Trace Output Channel",
-        "category": "Oxc"
+        "command": "oxfmt.restartServer",
+        "title": "Restart oxfmt Server",
+        "category": "Oxfmt"
+      },
+      {
+        "command": "oxfmt.showOutputChannel",
+        "title": "Show oxfmt Output Channel",
+        "category": "Oxfmt"
       }
     ]
   },
