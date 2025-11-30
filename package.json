@@ -19,16 +19,16 @@
     "coc": "^0.0.82"
   },
   "scripts": {
-    "prepare": "node esbuild.mjs",
-    "watch": "node esbuild.mjs --watch",
-    "build": "node esbuild.mjs",
+    "prepare": "rolldown -c",
+    "watch": "rolldown -c --watch",
+    "build": "rolldown -c",
     "ready": "pnpm lint && pnpm fmt",
     "lint": "oxlint --type-aware --deny-warnings --import-plugin -D correctness -D perf",
     "fmt": "oxfmt"
   },
   "devDependencies": {
     "coc.nvim": "0.0.83-next.24",
-    "esbuild": "^0.27.0",
+    "rolldown": "^1.0.0-beta.52",
     "oxfmt": "^0.15.0",
     "oxlint": "^1.16.0",
     "oxlint-tsgolint": "^0.8.0",
