@@ -12,6 +12,6 @@ export default defineConfig({
   platform: "node",
   minify: process.env.NODE_ENV === "production",
   experimental: {
-    attachDebugInfo: 'none'
-  }
+    attachDebugInfo: "none",
+  },
 });
