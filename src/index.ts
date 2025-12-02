@@ -1,5 +1,5 @@
-import {ExtensionContext} from "coc.nvim";
-import {createActivate} from "./common";
+import { ExtensionContext } from "coc.nvim";
+import { createActivate } from "./common";
 
 const activateOxlint = createActivate({
   name: "oxlint",

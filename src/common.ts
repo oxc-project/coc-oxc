@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import { join } from "path";
 import {
   Executable,
-    ExtensionContext,
+  ExtensionContext,
   LanguageClient,
   LanguageClientOptions,
   OutputChannel,
@@ -67,7 +67,9 @@ function createClient(
   command: string,
   outputChannel: OutputChannel,
 ): LanguageClient {
-  const settings: any = JSON.parse(JSON.stringify(workspace.getConfiguration(`oxc.${config.name}`)));
+  const settings: any = JSON.parse(
+    JSON.stringify(workspace.getConfiguration(`oxc.${config.name}`)),
+  );
   const documentSelector = config.languages.map((language) => ({
     language,
     scheme: "file",
@@ -105,7 +107,9 @@ function configureClient(config: ClientConfig, context: ExtensionContext, client
       return;
     }
 
-    const settings: any = JSON.parse(JSON.stringify(workspace.getConfiguration(`oxc.${config.name}`)));
+    const settings: any = JSON.parse(
+      JSON.stringify(workspace.getConfiguration(`oxc.${config.name}`)),
+    );
     void client.sendNotification("workspace/didChangeConfiguration", { settings });
   });
 }
