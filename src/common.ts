@@ -74,13 +74,36 @@ function createClient(
     language,
     scheme: "file",
   }));
+
+  // Format settings to match what oxc LSP server expects
+  // Map coc-oxc config names to LSP server expected names
+  const options: Record<string, any> = {};
+
+  if (config.name === "oxfmt") {
+    // For oxfmt: map 'enable' to 'fmt.experimental'
+    if (settings.enable !== undefined) {
+      options["fmt.experimental"] = settings.enable;
+    }
+    if (settings.binPath) {
+      options["fmt.binPath"] = settings.binPath;
+    }
+  } else if (config.name === "oxlint") {
+    // For oxlint: keep existing config names
+    Object.assign(options, settings);
+  }
+
+  const initializationOptions = [
+    {
+      workspaceUri: `file://${workspace.root}`,
+      options,
+    },
+  ];
+
   const clientOptions: LanguageClientOptions = {
     outputChannel,
     progressOnInitialization: true,
     documentSelector,
-    initializationOptions: {
-      settings,
-    },
+    initializationOptions,
   };
 
   return new LanguageClient(config.name, config.name, createServerOptions(command), clientOptions);
@@ -116,7 +139,8 @@ function configureClient(config: ClientConfig, context: ExtensionContext, client
 
 export function createActivate(config: ClientConfig): (context: ExtensionContext) => Promise<void> {
   return async (context: ExtensionContext): Promise<void> => {
-    const enable = workspace.getConfiguration(`oxc.${config.name}`).get<boolean>("enable", true);
+    const cfg = workspace.getConfiguration(`oxc.${config.name}`);
+    const enable = cfg.get<boolean>("enable", true);
     if (!enable) {
       return;
     }
