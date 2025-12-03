@@ -1,6 +1,6 @@
 {
   "name": "coc-oxc",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "description": "Oxc extension for coc.nvim",
   "author": "Boshen and oxc contributors",
   "license": "MIT",
