@@ -11,6 +11,8 @@
 - **oxlint**: Fast linter with auto-fix support
 - **oxfmt**: Fast formatter with format-on-save support
 
+> **Note:** This plugin only uses oxlint and oxfmt installed in the respective project; it does not activate globally.
+
 ## Configurations
 
 ### Oxlint (Linter)
@@ -37,7 +39,10 @@ To enable format on save, add this to your coc-config (`:CocConfig`):
     "javascriptreact",
     "typescript",
     "typescriptreact"
-  ]
+  ],
+  "typescript.format.enable": false,
+  "biome.format.enable": false,
+  "prettier.enable": false
 }
 ```
 
