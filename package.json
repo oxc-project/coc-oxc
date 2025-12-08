@@ -29,7 +29,7 @@
   "devDependencies": {
     "coc.nvim": "0.0.83-next.24",
     "rolldown": "^1.0.0-beta.52",
-    "oxfmt": "^0.16.0",
+    "oxfmt": "^0.17.0",
     "oxlint": "^1.16.0",
     "oxlint-tsgolint": "^0.8.0",
     "typescript": "^5.9.2"
