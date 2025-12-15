@@ -17,15 +17,15 @@
 
 ### Oxlint (Linter)
 
-* `oxc.oxlint.enable`: Enable oxlint language server (default: `true`)
-* `oxc.oxlint.run`: Run the linter on save `onSave` or on type `onType` (default: `onType`)
-* `oxc.oxlint.configPath`: Path to oxlint configuration (default: `null`, searches for `.oxlintrc.json`)
-* `oxc.oxlint.binPath`: Path to the `oxlint` binary (default: searches in `node_modules/.bin`)
+- `oxc.oxlint.enable`: Enable oxlint language server (default: `true`)
+- `oxc.oxlint.run`: Run the linter on save `onSave` or on type `onType` (default: `onType`)
+- `oxc.oxlint.configPath`: Path to oxlint configuration (default: `null`, searches for `.oxlintrc.json`)
+- `oxc.oxlint.binPath`: Path to the `oxlint` binary (default: searches in `node_modules/.bin`)
 
 ### Oxfmt (Formatter)
 
-* `oxc.oxfmt.enable`: Enable oxfmt formatting (default: `true`)
-* `oxc.oxfmt.binPath`: Path to the `oxfmt` binary (default: searches in `node_modules/.bin`)
+- `oxc.oxfmt.enable`: Enable oxfmt formatting (default: `true`)
+- `oxc.oxfmt.binPath`: Path to the `oxfmt` binary (default: searches in `node_modules/.bin`)
 
 ## Format on Save
 
@@ -52,13 +52,13 @@ You can also format manually with `:call CocAction('format')`
 
 ### Oxlint Commands
 
-* `oxlint.restartServer`: Restart oxlint Server
-* `oxlint.showOutputChannel`: Show oxlint Output Channel
+- `oxlint.restartServer`: Restart oxlint Server
+- `oxlint.showOutputChannel`: Show oxlint Output Channel
 
 ### Oxfmt Commands
 
-* `oxfmt.restartServer`: Restart oxfmt Server
-* `oxfmt.showOutputChannel`: Show oxfmt Output Channel
+- `oxfmt.restartServer`: Restart oxfmt Server
+- `oxfmt.showOutputChannel`: Show oxfmt Output Channel
 
 ## License
 
