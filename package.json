@@ -5,16 +5,16 @@
   "keywords": [
     "coc.nvim"
   ],
+  "license": "MIT",
+  "author": "Boshen and oxc contributors",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/oxc-project/coc-oxc.git"
   },
-  "author": "Boshen and oxc contributors",
-  "license": "MIT",
-  "main": "lib/index.js",
   "files": [
     "lib/**"
   ],
+  "main": "lib/index.js",
   "scripts": {
     "prepare": "rolldown -c",
     "watch": "rolldown -c --watch",
@@ -22,6 +22,14 @@
     "ready": "pnpm lint && pnpm fmt",
     "lint": "oxlint --type-aware --deny-warnings --import-plugin -D correctness -D perf",
     "fmt": "oxfmt"
+  },
+  "devDependencies": {
+    "coc.nvim": "0.0.83-next.24",
+    "oxfmt": "^0.19.0",
+    "oxlint": "^1.16.0",
+    "oxlint-tsgolint": "^0.9.0",
+    "rolldown": "^1.0.0-beta.52",
+    "typescript": "^5.9.2"
   },
   "contributes": {
     "configuration": {
@@ -100,16 +108,8 @@
     "onLanguage:typescriptreact",
     "onLanguage:vue"
   ],
-  "devDependencies": {
-    "coc.nvim": "0.0.83-next.24",
-    "oxfmt": "^0.19.0",
-    "oxlint": "^1.16.0",
-    "oxlint-tsgolint": "^0.9.0",
-    "rolldown": "^1.0.0-beta.52",
-    "typescript": "^5.9.2"
-  },
-  "packageManager": "pnpm@10.25.0",
   "engines": {
     "coc": "^0.0.82"
-  }
+  },
+  "packageManager": "pnpm@10.25.0"
 }
