@@ -34,17 +34,14 @@ To enable format on save, add this to your coc-config (`:CocConfig`):
 ```json
 {
   "oxc.oxfmt.enable": true,
-  "coc.preferences.formatOnSaveFiletypes": [
-    "javascript",
-    "javascriptreact",
-    "typescript",
-    "typescriptreact"
-  ],
+  "javascript.format.enable": false,
   "typescript.format.enable": false,
   "biome.format.enable": false,
   "prettier.enable": false
 }
 ```
+
+This disables ts language server (via `coc-tsserver`), Biome and prettier formatting.
 
 You can also format manually with `:call CocAction('format')`
 
