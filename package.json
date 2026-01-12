@@ -101,12 +101,23 @@
     ]
   },
   "activationEvents": [
+    "onLanguage:css",
+    "onLanguage:graphql",
+    "onLanguage:handlebars",
+    "onLanguage:html",
     "onLanguage:javascript",
     "onLanguage:javascriptreact",
+    "onLanguage:json",
+    "onLanguage:json5",
+    "onLanguage:jsonc",
+    "onLanguage:less",
+    "onLanguage:markdown",
+    "onLanguage:scss",
     "onLanguage:svelte",
     "onLanguage:typescript",
     "onLanguage:typescriptreact",
-    "onLanguage:vue"
+    "onLanguage:vue",
+    "onLanguage:yaml"
   ],
   "engines": {
     "coc": "^0.0.82"

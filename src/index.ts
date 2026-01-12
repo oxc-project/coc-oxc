@@ -8,7 +8,25 @@ const activateOxlint = createActivate({
 
 const activateOxfmt = createActivate({
   name: "oxfmt",
-  languages: ["typescript", "javascript", "typescriptreact", "javascriptreact"],
+  languages: [
+    "css",
+    "graphql",
+    "handlebars",
+    "html",
+    "javascript",
+    "javascriptreact",
+    "json",
+    "json5",
+    "jsonc",
+    "less",
+    "markdown",
+    "mdx",
+    "scss",
+    "typescript",
+    "typescriptreact",
+    "vue",
+    "yaml",
+  ],
 });
 
 export async function activate(context: ExtensionContext): Promise<void> {
