@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "coc.nvim": "0.0.83-next.24",
-    "oxfmt": "^0.26.0",
+    "oxfmt": "^0.27.0",
     "oxlint": "^1.39.0",
     "oxlint-tsgolint": "^0.11.0",
     "rolldown": "1.0.0-rc.1",
