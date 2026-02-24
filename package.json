@@ -27,7 +27,7 @@
     "coc.nvim": "0.0.83-next.24",
     "oxfmt": "^0.35.0",
     "oxlint": "^1.39.0",
-    "oxlint-tsgolint": "^0.14.0",
+    "oxlint-tsgolint": "^0.15.0",
     "rolldown": "1.0.0-rc.5",
     "typescript": "^5.9.3"
   },
