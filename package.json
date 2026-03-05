@@ -20,7 +20,7 @@
     "watch": "rolldown -c --watch",
     "build": "rolldown -c",
     "ready": "pnpm lint && pnpm fmt",
-    "lint": "oxlint --deny-warnings --import-plugin -D correctness -D perf",
+    "lint": "oxlint --type-aware --type-check --deny-warnings --import-plugin -D correctness -D perf",
     "fmt": "oxfmt"
   },
   "devDependencies": {
@@ -64,6 +64,18 @@
           "scope": "resource",
           "default": null,
           "description": "Path to oxlint configuration. Keep it empty to enable nested configuration."
+        },
+        "oxc.oxlint.typeAware": {
+          "type": "boolean",
+          "scope": "resource",
+          "default": false,
+          "description": "Enable type-aware linting. Requires the `oxlint-tsgolint` package."
+        },
+        "oxc.oxlint.typeCheck": {
+          "type": "boolean",
+          "scope": "resource",
+          "default": false,
+          "description": "Enable type checking."
         },
         "oxc.oxfmt.enable": {
           "type": "boolean",
