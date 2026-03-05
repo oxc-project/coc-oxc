@@ -26,6 +26,7 @@
 
 - `oxc.oxfmt.enable`: Enable oxfmt formatting (default: `true`)
 - `oxc.oxfmt.binPath`: Path to the `oxfmt` binary (default: searches in `node_modules/.bin`)
+- `oxc.oxfmt.formatterPriority`: Priority of formatter provider (default: `1`). Higher priority wins when multiple formatters are registered. Set to `-1` to make it lower priority than other formatters.
 
 ## Format on Save
 
@@ -33,15 +34,13 @@ To enable format on save, add this to your coc-config (`:CocConfig`):
 
 ```json
 {
-  "oxc.oxfmt.enable": true,
-  "javascript.format.enable": false,
-  "typescript.format.enable": false,
-  "biome.format.enable": false,
-  "prettier.enable": false
+  "coc.preferences.formatterExtension": "coc-oxc"
 }
 ```
 
-This disables ts language server (via `coc-tsserver`), Biome and prettier formatting.
+This tells coc.nvim to always use coc-oxc as the formatter, avoiding conflicts with other formatters like coc-biome or coc-prettier.
+
+Alternatively, you can set `oxc.oxfmt.formatterPriority` to control the priority (default `1`, which is higher than most other formatters).
 
 You can also format manually with `:call CocAction('format')`
 
