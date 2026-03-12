@@ -19,8 +19,7 @@
     "prepare": "vp config && vp build",
     "watch": "vp build --watch",
     "build": "vp build",
-    "ready": "pnpm lint && pnpm fmt",
-    "lint": "vp lint --type-aware --type-check --deny-warnings --import-plugin -D correctness -D perf",
+    "lint": "vp lint",
     "fmt": "vp fmt"
   },
   "devDependencies": {

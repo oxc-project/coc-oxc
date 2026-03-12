@@ -24,6 +24,18 @@ export default defineConfig({
     },
     sourcemap: false,
   },
+  lint: {
+    categories: {
+      correctness: "error",
+      perf: "error",
+    },
+    options: {
+      denyWarnings: true,
+      typeAware: true,
+      typeCheck: true,
+    },
+    plugins: ["typescript", "oxc", "unicorn", "import"],
+  },
   staged: {
     "*": "vp check --fix",
   },
