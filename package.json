@@ -16,20 +16,18 @@
   ],
   "main": "lib/index.js",
   "scripts": {
-    "prepare": "rolldown -c",
-    "watch": "rolldown -c --watch",
-    "build": "rolldown -c",
+    "prepare": "vp config && vp build",
+    "watch": "vp build --watch",
+    "build": "vp build",
     "ready": "pnpm lint && pnpm fmt",
-    "lint": "oxlint --type-aware --type-check --deny-warnings --import-plugin -D correctness -D perf",
-    "fmt": "oxfmt"
+    "lint": "vp lint --type-aware --type-check --deny-warnings --import-plugin -D correctness -D perf",
+    "fmt": "vp fmt"
   },
   "devDependencies": {
+    "@types/node": "^22.15.3",
     "coc.nvim": "0.0.83-next.24",
-    "oxfmt": "^0.38.0",
-    "oxlint": "^1.51.0",
-    "oxlint-tsgolint": "^0.16.0",
-    "rolldown": "1.0.0-rc.9",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite-plus": "latest"
   },
   "contributes": {
     "configuration": {
@@ -122,5 +120,11 @@
   "engines": {
     "coc": "^0.0.82"
   },
-  "packageManager": "pnpm@10.30.2"
+  "packageManager": "pnpm@10.30.2",
+  "pnpm": {
+    "overrides": {
+      "vite": "npm:@voidzero-dev/vite-plus-core@latest",
+      "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
+    }
+  }
 }
