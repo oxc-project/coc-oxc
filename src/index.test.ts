@@ -266,4 +266,54 @@ describe("extension activation", () => {
     expect(mocks.execFileAsync).not.toHaveBeenCalled();
     expect(context.subscriptions).toHaveLength(0);
   });
+
+  it("uses configured oxfmt filetypes for document selector", async () => {
+    mocks.configurationValues["oxc.oxfmt"] = {
+      enable: true,
+      binPath: "/mock/bin/oxfmt",
+      filetypes: ["json", "typescript", "typescript", 42],
+    };
+    mocks.existsSync.mockImplementation((path: string) => path === "/mock/bin/oxfmt");
+
+    const { createActivate } = await import("./common");
+    const context = { subscriptions: [] as unknown[] };
+
+    await createActivate({
+      name: "oxfmt",
+      languages: ["javascript", "typescript"],
+    })(context as never);
+
+    expect(mocks.createdClients).toHaveLength(1);
+    expect(mocks.createdClients[0].clientOptions).toMatchObject({
+      documentSelector: [
+        { language: "json", scheme: "file" },
+        { language: "typescript", scheme: "file" },
+      ],
+    });
+  });
+
+  it("falls back to default oxfmt languages when filetypes is empty", async () => {
+    mocks.configurationValues["oxc.oxfmt"] = {
+      enable: true,
+      binPath: "/mock/bin/oxfmt",
+      filetypes: [],
+    };
+    mocks.existsSync.mockImplementation((path: string) => path === "/mock/bin/oxfmt");
+
+    const { createActivate } = await import("./common");
+    const context = { subscriptions: [] as unknown[] };
+
+    await createActivate({
+      name: "oxfmt",
+      languages: ["javascript", "typescript"],
+    })(context as never);
+
+    expect(mocks.createdClients).toHaveLength(1);
+    expect(mocks.createdClients[0].clientOptions).toMatchObject({
+      documentSelector: [
+        { language: "javascript", scheme: "file" },
+        { language: "typescript", scheme: "file" },
+      ],
+    });
+  });
 });
