@@ -99,11 +99,14 @@ function createClient(
     },
   ];
 
+  const formatterPriority = settings.formatterPriority as number | undefined;
+
   const clientOptions: LanguageClientOptions = {
     outputChannel,
     progressOnInitialization: true,
     documentSelector,
     initializationOptions,
+    ...(formatterPriority != null && { formatterPriority }),
   };
 
   return new LanguageClient(config.name, config.name, createServerOptions(command), clientOptions);
