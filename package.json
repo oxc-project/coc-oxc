@@ -71,6 +71,32 @@
           "type": "string",
           "default": "",
           "description": "Path to the `oxfmt` binary"
+        },
+        "oxc.oxfmt.filetypes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "css",
+            "graphql",
+            "handlebars",
+            "html",
+            "javascript",
+            "javascriptreact",
+            "json",
+            "json5",
+            "jsonc",
+            "less",
+            "markdown",
+            "mdx",
+            "scss",
+            "typescript",
+            "typescriptreact",
+            "vue",
+            "yaml"
+          ],
+          "description": "Language IDs where oxfmt should run"
         }
       }
     },

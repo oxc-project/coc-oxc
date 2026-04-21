@@ -24,6 +24,26 @@ export interface ClientConfig {
   languages: string[];
 }
 
+function resolveDocumentLanguages(
+  config: ClientConfig,
+  settings: Record<string, unknown>,
+): string[] {
+  if (config.name !== "oxfmt") {
+    return config.languages;
+  }
+
+  const filetypes = settings.filetypes;
+  if (!Array.isArray(filetypes)) {
+    return config.languages;
+  }
+
+  const resolved = Array.from(
+    new Set(filetypes.filter((filetype): filetype is string => typeof filetype === "string")),
+  );
+
+  return resolved.length > 0 ? resolved : config.languages;
+}
+
 function findBinary(config: ClientConfig): Optional<string> {
   const cfg = workspace.getConfiguration(`oxc.${config.name}`);
   let bin = cfg.get<string>("binPath", "");
@@ -70,7 +90,8 @@ function createClient(
   const settings: any = JSON.parse(
     JSON.stringify(workspace.getConfiguration(`oxc.${config.name}`)),
   );
-  const documentSelector = config.languages.map((language) => ({
+  const languages = resolveDocumentLanguages(config, settings);
+  const documentSelector = languages.map((language) => ({
     language,
     scheme: "file",
   }));

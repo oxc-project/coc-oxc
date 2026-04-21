@@ -26,6 +26,15 @@
 
 - `oxc.oxfmt.enable`: Enable oxfmt formatting (default: `true`)
 - `oxc.oxfmt.binPath`: Path to the `oxfmt` binary (default: searches in `node_modules/.bin`)
+- `oxc.oxfmt.filetypes`: Language IDs where oxfmt runs (default: css/graphql/html/js/ts/json and related types)
+
+To limit oxfmt to JS/TS/JSON only:
+
+```json
+{
+  "oxc.oxfmt.filetypes": ["json", "javascript", "typescript", "javascriptreact", "typescriptreact"]
+}
+```
 
 ## Format on Save
 
