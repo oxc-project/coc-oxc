@@ -12,7 +12,6 @@ const mocks = vi.hoisted(() => {
   const configurationListeners: Array<
     (event: { affectsConfiguration: (section: string) => boolean }) => void
   > = [];
-  const promisifyCustom = Symbol.for("nodejs.util.promisify.custom");
 
   class MockLanguageClient {
     id: string;
@@ -36,10 +35,6 @@ const mocks = vi.hoisted(() => {
       createdClients.push(this);
     }
   }
-
-  const execFile = vi.fn();
-  const execFileAsync = vi.fn();
-  Object.defineProperty(execFile, promisifyCustom, { value: execFileAsync });
 
   const existsSync = vi.fn((_path: string) => false);
 
@@ -108,9 +103,6 @@ const mocks = vi.hoisted(() => {
     outputChannels.length = 0;
     configurationListeners.length = 0;
 
-    execFile.mockClear();
-    execFileAsync.mockReset();
-    execFileAsync.mockResolvedValue({ stdout: "--lsp", stderr: "" });
     existsSync.mockReset();
     existsSync.mockImplementation((_path: string) => false);
 
@@ -130,9 +122,6 @@ const mocks = vi.hoisted(() => {
     registeredCommands,
     outputChannels,
     configurationListeners,
-    promisifyCustom,
-    execFile,
-    execFileAsync,
     existsSync,
     commands,
     services,
@@ -143,23 +132,9 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock("node:child_process", () => ({
-  execFile: mocks.execFile,
-}));
-
 vi.mock("node:fs", () => ({
   existsSync: mocks.existsSync,
 }));
-
-vi.mock("node:util", async () => {
-  const actual = await vi.importActual<typeof import("node:util")>("node:util");
-  return {
-    ...actual,
-    promisify: vi.fn((fn: Record<PropertyKey, unknown>) => {
-      return fn[mocks.promisifyCustom] as unknown;
-    }),
-  };
-});
 
 vi.mock("coc.nvim", () => ({
   LanguageClient: mocks.MockLanguageClient,
@@ -204,7 +179,6 @@ describe("extension activation", () => {
       "oxfmt.showOutputChannel",
       "oxfmt.restartServer",
     ]);
-    expect(mocks.execFileAsync).toHaveBeenCalledTimes(2);
 
     const [oxlintClient, oxfmtClient] = mocks.createdClients;
     expect(oxlintClient.serverOptions).toMatchObject({
@@ -263,7 +237,6 @@ describe("extension activation", () => {
     expect(mocks.createdClients).toHaveLength(0);
     expect(mocks.registeredClients).toHaveLength(0);
     expect(mocks.registeredCommands).toHaveLength(0);
-    expect(mocks.execFileAsync).not.toHaveBeenCalled();
     expect(context.subscriptions).toHaveLength(0);
   });
 });
