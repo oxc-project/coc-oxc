@@ -93,6 +93,10 @@ function createClient(
     initializationOptions,
   };
 
+  if (config.name === "oxfmt") {
+    clientOptions.formatterPriority = settings.formatterPriority ?? 1;
+  }
+
   return new LanguageClient(config.name, config.name, createServerOptions(command), clientOptions);
 }
 
