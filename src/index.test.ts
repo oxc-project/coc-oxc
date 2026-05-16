@@ -12,6 +12,13 @@ const mocks = vi.hoisted(() => {
   const configurationListeners: Array<
     (event: { affectsConfiguration: (section: string) => boolean }) => void
   > = [];
+  const willSaveListeners: Array<
+    (event: {
+      document: { uri: string; languageId: string; end: { line: number; character: number } };
+      waitUntil: (thenable: Promise<unknown>) => void;
+    }) => void
+  > = [];
+  const appliedEdits: unknown[] = [];
 
   class MockLanguageClient {
     id: string;
@@ -20,6 +27,7 @@ const mocks = vi.hoisted(() => {
     clientOptions: Record<string, unknown>;
     restart = vi.fn(async () => undefined);
     sendNotification = vi.fn();
+    sendRequest = vi.fn(async (_method: string, _params: unknown) => null as unknown);
     error = vi.fn();
 
     constructor(
@@ -79,6 +87,21 @@ const mocks = vi.hoisted(() => {
         return { dispose: vi.fn() };
       },
     ),
+    onWillSaveTextDocument: vi.fn(
+      (
+        listener: (event: {
+          document: { uri: string; languageId: string; end: { line: number; character: number } };
+          waitUntil: (thenable: Promise<unknown>) => void;
+        }) => void,
+      ) => {
+        willSaveListeners.push(listener);
+        return { dispose: vi.fn() };
+      },
+    ),
+    applyEdit: vi.fn(async (edit: unknown) => {
+      appliedEdits.push(edit);
+      return true;
+    }),
   };
 
   function reset() {
@@ -102,6 +125,8 @@ const mocks = vi.hoisted(() => {
     registeredCommands.length = 0;
     outputChannels.length = 0;
     configurationListeners.length = 0;
+    willSaveListeners.length = 0;
+    appliedEdits.length = 0;
 
     existsSync.mockReset();
     existsSync.mockImplementation((_path: string) => false);
@@ -113,6 +138,8 @@ const mocks = vi.hoisted(() => {
     window.showInformationMessage.mockClear();
     workspace.getConfiguration.mockClear();
     workspace.onDidChangeConfiguration.mockClear();
+    workspace.onWillSaveTextDocument.mockClear();
+    workspace.applyEdit.mockClear();
   }
 
   return {
@@ -122,6 +149,8 @@ const mocks = vi.hoisted(() => {
     registeredCommands,
     outputChannels,
     configurationListeners,
+    willSaveListeners,
+    appliedEdits,
     existsSync,
     commands,
     services,
@@ -142,6 +171,35 @@ vi.mock("coc.nvim", () => ({
   services: mocks.services,
   window: mocks.window,
   workspace: mocks.workspace,
+  CancellationTokenSource: class {
+    token = { isCancellationRequested: false };
+    dispose() {}
+  },
+  Position: {
+    create: (line: number, character: number) => ({ line, character }),
+  },
+  Range: {
+    create: (
+      startOrLine: number | { line: number; character: number },
+      startCharOrEnd: number | { line: number; character: number },
+      endLine?: number,
+      endCharacter?: number,
+    ) => {
+      if (typeof startOrLine === "number") {
+        return {
+          start: { line: startOrLine, character: startCharOrEnd as number },
+          end: { line: endLine!, character: endCharacter! },
+        };
+      }
+      return { start: startOrLine, end: startCharOrEnd as { line: number; character: number } };
+    },
+  },
+  TextDocumentIdentifier: {
+    create: (uri: string) => ({ uri }),
+  },
+  Command: {
+    is: (value: unknown) => typeof (value as { command?: unknown }).command === "string",
+  },
 }));
 
 beforeEach(() => {
@@ -235,6 +293,89 @@ describe("extension activation", () => {
 
     const oxfmtClient = mocks.createdClients.find((client) => client.name === "oxfmt");
     expect(oxfmtClient?.clientOptions).toMatchObject({ formatterPriority: 5 });
+  });
+
+  it("requests source.fixAll.oxc on save and applies returned edits", async () => {
+    mocks.configurationValues["oxc.oxlint"] = {
+      enable: true,
+      binPath: "/mock/bin/oxlint",
+      codeActionsOnSave: ["source.fixAll.oxc"],
+    };
+    mocks.configurationValues["oxc.oxfmt"] = { enable: false };
+    mocks.existsSync.mockImplementation((path: string) => path === "/mock/bin/oxlint");
+
+    const expectedEdit = { changes: { "file:///mock/foo.ts": [] } };
+    const { activate } = await import("./index");
+    await activate({ subscriptions: [] as unknown[] } as never);
+
+    const oxlintClient = mocks.createdClients.find((client) => client.name === "oxlint")!;
+    oxlintClient.sendRequest.mockResolvedValueOnce([
+      { title: "Fix all", kind: "source.fixAll.oxc", edit: expectedEdit },
+    ]);
+
+    expect(mocks.willSaveListeners).toHaveLength(1);
+    const waited: Promise<unknown>[] = [];
+    mocks.willSaveListeners[0]({
+      document: {
+        uri: "file:///mock/foo.ts",
+        languageId: "typescript",
+        end: { line: 10, character: 0 },
+      },
+      waitUntil: (thenable) => {
+        waited.push(Promise.resolve(thenable));
+      },
+    });
+    await Promise.all(waited);
+
+    expect(oxlintClient.sendRequest).toHaveBeenCalledWith(
+      "textDocument/codeAction",
+      expect.objectContaining({
+        textDocument: { uri: "file:///mock/foo.ts" },
+        context: { diagnostics: [], only: ["source.fixAll.oxc"] },
+        range: expect.objectContaining({
+          start: { line: 0, character: 0 },
+          end: { line: 10, character: 0 },
+        }),
+      }),
+      expect.anything(),
+    );
+    expect(mocks.appliedEdits).toEqual([expectedEdit]);
+  });
+
+  it("skips on-save code actions when no kinds are configured or language does not match", async () => {
+    mocks.configurationValues["oxc.oxlint"] = {
+      enable: true,
+      binPath: "/mock/bin/oxlint",
+      codeActionsOnSave: [],
+    };
+    mocks.configurationValues["oxc.oxfmt"] = { enable: false };
+    mocks.existsSync.mockImplementation((path: string) => path === "/mock/bin/oxlint");
+
+    const { activate } = await import("./index");
+    await activate({ subscriptions: [] as unknown[] } as never);
+
+    const oxlintClient = mocks.createdClients.find((client) => client.name === "oxlint")!;
+
+    mocks.willSaveListeners[0]({
+      document: {
+        uri: "file:///mock/foo.ts",
+        languageId: "typescript",
+        end: { line: 0, character: 0 },
+      },
+      waitUntil: () => {},
+    });
+    expect(oxlintClient.sendRequest).not.toHaveBeenCalled();
+
+    mocks.configurationValues["oxc.oxlint"].codeActionsOnSave = ["source.fixAll.oxc"];
+    mocks.willSaveListeners[0]({
+      document: {
+        uri: "file:///mock/foo.css",
+        languageId: "css",
+        end: { line: 0, character: 0 },
+      },
+      waitUntil: () => {},
+    });
+    expect(oxlintClient.sendRequest).not.toHaveBeenCalled();
   });
 
   it("skips activation for disabled clients", async () => {

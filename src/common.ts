@@ -1,12 +1,20 @@
 import { existsSync } from "node:fs";
 import { join } from "path";
 import {
+  CancellationTokenSource,
+  CodeAction,
+  CodeActionContext,
+  Command,
   Executable,
   ExtensionContext,
   LanguageClient,
   LanguageClientOptions,
   OutputChannel,
+  Position,
+  Range,
   ServerOptions,
+  TextDocumentIdentifier,
+  WillSaveEvent,
   commands,
   services,
   window,
@@ -117,7 +125,72 @@ function configureClient(config: ClientConfig, context: ExtensionContext, client
     );
     void client.sendNotification("workspace/didChangeConfiguration", { settings });
   });
+
+  if (config.name === "oxlint") {
+    context.subscriptions.push(
+      workspace.onWillSaveTextDocument((event) => {
+        if (!config.languages.includes(event.document.languageId)) {
+          return;
+        }
+        const kinds = workspace
+          .getConfiguration("oxc.oxlint", event.document.uri)
+          .get<string[]>("codeActionsOnSave", []);
+        if (kinds.length === 0) {
+          return;
+        }
+        event.waitUntil(applyCodeActionsOnSave(client, event, kinds));
+      }),
+    );
+  }
 }
+
+/* eslint-disable no-await-in-loop -- each edit mutates the buffer, so the next request must observe the previous result */
+async function applyCodeActionsOnSave(
+  client: LanguageClient,
+  event: WillSaveEvent,
+  kinds: string[],
+): Promise<void> {
+  const document = event.document;
+  const range = Range.create(Position.create(0, 0), document.end);
+  const tokenSource = new CancellationTokenSource();
+
+  try {
+    for (const kind of kinds) {
+      const context: CodeActionContext = { diagnostics: [], only: [kind] };
+      const params = {
+        textDocument: TextDocumentIdentifier.create(document.uri),
+        range,
+        context,
+      };
+      const actions = await client.sendRequest<(Command | CodeAction)[] | null>(
+        "textDocument/codeAction",
+        params,
+        tokenSource.token,
+      );
+      if (!actions) continue;
+      for (const action of actions) {
+        if (Command.is(action)) continue;
+        let edit = action.edit;
+        if (!edit && action.data !== undefined) {
+          const resolved = await client.sendRequest<CodeAction>(
+            "codeAction/resolve",
+            action,
+            tokenSource.token,
+          );
+          edit = resolved?.edit;
+        }
+        if (edit) {
+          await workspace.applyEdit(edit);
+        }
+      }
+    }
+  } catch (err) {
+    client.error("codeActionsOnSave failed", err);
+  } finally {
+    tokenSource.dispose();
+  }
+}
+/* eslint-enable no-await-in-loop */
 
 export function createActivate(config: ClientConfig): (context: ExtensionContext) => Promise<void> {
   return async (context: ExtensionContext): Promise<void> => {
