@@ -26,7 +26,7 @@
 
 - `oxc.oxfmt.enable`: Enable oxfmt formatting (default: `true`)
 - `oxc.oxfmt.binPath`: Path to the `oxfmt` binary (default: searches in `node_modules/.bin`)
-- `oxc.oxfmt.formatterPriority`: Priority used when multiple formatters are registered for a language. Higher wins. Set to a negative value to defer to other formatters (default: `1`)
+- `oxc.oxfmt.formatterPriority`: Priority used when multiple formatters are registered for a language. Only positive values boost; the default `1` outranks formatters that do not set a priority. To defer for a given language, use `coc.preferences.formatterExtension` instead (default: `1`)
 
 ## Format on Save
 
@@ -47,7 +47,7 @@ To enable format on save, add this to your coc-config (`:CocConfig`):
 }
 ```
 
-oxfmt also registers itself with `oxc.oxfmt.formatterPriority` `1` by default, which outranks any extension that does not set a priority. Tune that value if you need finer control.
+oxfmt also registers itself with `oxc.oxfmt.formatterPriority` `1` by default, which outranks any extension that does not set a priority.
 
 You can also format manually with `:call CocAction('format')`
 
