@@ -1,6 +1,4 @@
 import { existsSync } from "node:fs";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { join } from "path";
 import {
   Executable,
@@ -14,8 +12,6 @@ import {
   window,
   workspace,
 } from "coc.nvim";
-
-const execFileAsync = promisify(execFile);
 
 type Optional<T> = T | null;
 
@@ -33,15 +29,6 @@ function findBinary(config: ClientConfig): Optional<string> {
 
   bin = join(workspace.root, "node_modules", ".bin", config.name);
   return existsSync(bin) ? bin : null;
-}
-
-async function supportsLsp(command: string): Promise<boolean> {
-  try {
-    const { stdout } = await execFileAsync(command, ["--help"]);
-    return stdout.includes("--lsp");
-  } catch {
-    return false;
-  }
 }
 
 function createServerOptions(command: string): ServerOptions {
@@ -147,10 +134,6 @@ export function createActivate(config: ClientConfig): (context: ExtensionContext
 
     const command = findBinary(config);
     if (!command) {
-      return;
-    }
-
-    if (!(await supportsLsp(command))) {
       return;
     }
 
