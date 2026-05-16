@@ -71,6 +71,11 @@
           "type": "string",
           "default": "",
           "description": "Path to the `oxfmt` binary"
+        },
+        "oxc.oxfmt.formatterPriority": {
+          "type": "number",
+          "default": 1,
+          "description": "Priority of the oxfmt formatter when multiple formatters are registered for a language. Higher wins. Set to a negative value to defer to other formatters."
         }
       }
     },

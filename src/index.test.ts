@@ -216,7 +216,25 @@ describe("extension activation", () => {
           },
         },
       ],
+      formatterPriority: 1,
     });
+    expect(oxlintClient.clientOptions).not.toHaveProperty("formatterPriority");
+  });
+
+  it("honors a configured oxfmt formatterPriority", async () => {
+    mocks.configurationValues["oxc.oxlint"] = { enable: false };
+    mocks.configurationValues["oxc.oxfmt"] = {
+      enable: true,
+      binPath: "/mock/bin/oxfmt",
+      formatterPriority: 5,
+    };
+    mocks.existsSync.mockImplementation((path: string) => path === "/mock/bin/oxfmt");
+
+    const { activate } = await import("./index");
+    await activate({ subscriptions: [] as unknown[] } as never);
+
+    const oxfmtClient = mocks.createdClients.find((client) => client.name === "oxfmt");
+    expect(oxfmtClient?.clientOptions).toMatchObject({ formatterPriority: 5 });
   });
 
   it("skips activation for disabled clients", async () => {

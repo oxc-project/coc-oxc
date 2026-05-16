@@ -62,36 +62,31 @@ function createClient(
     scheme: "file",
   }));
 
-  // Format settings to match what oxc LSP server expects
-  // Map coc-oxc config names to LSP server expected names
   const options: Record<string, any> = {};
-
-  if (config.name === "oxfmt") {
-    // For oxfmt: map 'enable' to 'fmt.experimental'
-    if (settings.enable !== undefined) {
-      options["fmt.experimental"] = settings.enable;
-    }
-    if (settings.binPath) {
-      options["fmt.binPath"] = settings.binPath;
-    }
-  } else if (config.name === "oxlint") {
-    // For oxlint: keep existing config names
-    Object.assign(options, settings);
-  }
-
   const initializationOptions = [
     {
       workspaceUri: `file://${workspace.root}`,
       options,
     },
   ];
-
   const clientOptions: LanguageClientOptions = {
     outputChannel,
     progressOnInitialization: true,
     documentSelector,
     initializationOptions,
   };
+
+  if (config.name === "oxfmt") {
+    if (settings.enable !== undefined) {
+      options["fmt.experimental"] = settings.enable;
+    }
+    if (settings.binPath) {
+      options["fmt.binPath"] = settings.binPath;
+    }
+    clientOptions.formatterPriority = settings.formatterPriority ?? 1;
+  } else if (config.name === "oxlint") {
+    Object.assign(options, settings);
+  }
 
   return new LanguageClient(config.name, config.name, createServerOptions(command), clientOptions);
 }
