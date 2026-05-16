@@ -8,6 +8,22 @@ const external = new Set([
 ]);
 
 export default defineConfig({
+  staged: {
+    "*": "vp check --fix",
+  },
+  fmt: {},
+  lint: {
+    categories: {
+      correctness: "error",
+      perf: "error",
+    },
+    options: {
+      denyWarnings: true,
+      typeAware: true,
+      typeCheck: true,
+    },
+    plugins: ["typescript", "oxc", "unicorn", "import"],
+  },
   build: {
     lib: {
       entry: "src/index.ts",
@@ -23,20 +39,5 @@ export default defineConfig({
       },
     },
     sourcemap: false,
-  },
-  lint: {
-    categories: {
-      correctness: "error",
-      perf: "error",
-    },
-    options: {
-      denyWarnings: true,
-      typeAware: true,
-      typeCheck: true,
-    },
-    plugins: ["typescript", "oxc", "unicorn", "import"],
-  },
-  staged: {
-    "*": "vp check --fix",
   },
 });
