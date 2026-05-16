@@ -258,11 +258,30 @@ describe("extension activation", () => {
     expect(oxfmtClient?.clientOptions).toMatchObject({ formatterPriority: 5 });
   });
 
-  it("runs oxc.fixAll on save when source.fixAll.oxc is configured", async () => {
+  it.each([
+    {
+      name: "runs oxc.fixAll when source.fixAll.oxc is configured and language matches",
+      kinds: ["source.fixAll.oxc"],
+      languageId: "typescript",
+      expectRequest: true,
+    },
+    {
+      name: "skips when codeActionsOnSave is empty",
+      kinds: [],
+      languageId: "typescript",
+      expectRequest: false,
+    },
+    {
+      name: "skips when language is not in the oxlint document selector",
+      kinds: ["source.fixAll.oxc"],
+      languageId: "css",
+      expectRequest: false,
+    },
+  ])("$name", async ({ kinds, languageId, expectRequest }) => {
     mocks.configurationValues["oxc.oxlint"] = {
       enable: true,
       binPath: "/mock/bin/oxlint",
-      codeActionsOnSave: ["source.fixAll.oxc"],
+      codeActionsOnSave: kinds,
     };
     mocks.configurationValues["oxc.oxfmt"] = { enable: false };
     mocks.existsSync.mockImplementation((path: string) => path === "/mock/bin/oxlint");
@@ -271,49 +290,23 @@ describe("extension activation", () => {
     await activate({ subscriptions: [] as unknown[] } as never);
 
     const oxlintClient = mocks.createdClients.find((client) => client.name === "oxlint")!;
-
-    expect(mocks.willSaveListeners).toHaveLength(1);
     const waited: Promise<unknown>[] = [];
     mocks.willSaveListeners[0]({
-      document: { uri: "file:///mock/foo.ts", languageId: "typescript" },
+      document: { uri: "file:///mock/foo", languageId },
       waitUntil: (thenable) => {
         waited.push(Promise.resolve(thenable));
       },
     });
     await Promise.all(waited);
 
-    expect(oxlintClient.sendRequest).toHaveBeenCalledWith("workspace/executeCommand", {
-      command: "oxc.fixAll",
-      arguments: [{ uri: "file:///mock/foo.ts" }],
-    });
-  });
-
-  it("skips on-save fix when source.fixAll.oxc is not configured or language does not match", async () => {
-    mocks.configurationValues["oxc.oxlint"] = {
-      enable: true,
-      binPath: "/mock/bin/oxlint",
-      codeActionsOnSave: [],
-    };
-    mocks.configurationValues["oxc.oxfmt"] = { enable: false };
-    mocks.existsSync.mockImplementation((path: string) => path === "/mock/bin/oxlint");
-
-    const { activate } = await import("./index");
-    await activate({ subscriptions: [] as unknown[] } as never);
-
-    const oxlintClient = mocks.createdClients.find((client) => client.name === "oxlint")!;
-
-    mocks.willSaveListeners[0]({
-      document: { uri: "file:///mock/foo.ts", languageId: "typescript" },
-      waitUntil: () => {},
-    });
-    expect(oxlintClient.sendRequest).not.toHaveBeenCalled();
-
-    mocks.configurationValues["oxc.oxlint"].codeActionsOnSave = ["source.fixAll.oxc"];
-    mocks.willSaveListeners[0]({
-      document: { uri: "file:///mock/foo.css", languageId: "css" },
-      waitUntil: () => {},
-    });
-    expect(oxlintClient.sendRequest).not.toHaveBeenCalled();
+    if (expectRequest) {
+      expect(oxlintClient.sendRequest).toHaveBeenCalledWith("workspace/executeCommand", {
+        command: "oxc.fixAll",
+        arguments: [{ uri: "file:///mock/foo" }],
+      });
+    } else {
+      expect(oxlintClient.sendRequest).not.toHaveBeenCalled();
+    }
   });
 
   it("skips activation for disabled clients", async () => {
