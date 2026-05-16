@@ -144,7 +144,8 @@ function configureClient(config: ClientConfig, context: ExtensionContext, client
   }
 }
 
-/* eslint-disable no-await-in-loop -- each edit mutates the buffer, so the next request must observe the previous result */
+// Each edit mutates the buffer, so the next request must observe the previous result.
+// oxlint-disable no-await-in-loop
 async function applyCodeActionsOnSave(
   client: LanguageClient,
   event: WillSaveEvent,
@@ -190,7 +191,7 @@ async function applyCodeActionsOnSave(
     tokenSource.dispose();
   }
 }
-/* eslint-enable no-await-in-loop */
+// oxlint-enable no-await-in-loop
 
 export function createActivate(config: ClientConfig): (context: ExtensionContext) => Promise<void> {
   return async (context: ExtensionContext): Promise<void> => {
