@@ -62,6 +62,15 @@
           "default": null,
           "description": "Path to oxlint configuration. Keep it empty to enable nested configuration."
         },
+        "oxc.oxlint.codeActionsOnSave": {
+          "scope": "resource",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Code action kinds to apply on save (e.g. `source.fixAll.oxc`). Leave empty to disable."
+        },
         "oxc.oxfmt.enable": {
           "type": "boolean",
           "default": true,

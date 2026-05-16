@@ -21,6 +21,7 @@
 - `oxc.oxlint.run`: Run the linter on save `onSave` or on type `onType` (default: `onType`)
 - `oxc.oxlint.configPath`: Path to oxlint configuration (default: `null`, searches for `.oxlintrc.json`)
 - `oxc.oxlint.binPath`: Path to the `oxlint` binary (default: searches in `node_modules/.bin`)
+- `oxc.oxlint.codeActionsOnSave`: Code action kinds to apply on save, e.g. `["source.fixAll.oxc"]` (default: `[]`, disabled)
 
 ### Oxfmt (Formatter)
 
@@ -50,6 +51,16 @@ To enable format on save, add this to your coc-config (`:CocConfig`):
 oxfmt also registers itself with `oxc.oxfmt.formatterPriority` `1` by default, which outranks any extension that does not set a priority.
 
 You can also format manually with `:call CocAction('format')`
+
+## Fix on Save
+
+To apply oxlint's auto-fixes on save, add this to your coc-config (`:CocConfig`):
+
+```json
+{
+  "oxc.oxlint.codeActionsOnSave": ["source.fixAll.oxc"]
+}
+```
 
 ## Commands
 

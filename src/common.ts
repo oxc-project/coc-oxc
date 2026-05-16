@@ -117,6 +117,30 @@ function configureClient(config: ClientConfig, context: ExtensionContext, client
     );
     void client.sendNotification("workspace/didChangeConfiguration", { settings });
   });
+
+  if (config.name === "oxlint") {
+    context.subscriptions.push(
+      workspace.onWillSaveTextDocument((event) => {
+        if (!config.languages.includes(event.document.languageId)) {
+          return;
+        }
+        const kinds = workspace
+          .getConfiguration("oxc.oxlint", event.document.uri)
+          .get<string[]>("codeActionsOnSave", []);
+        if (!kinds.includes("source.fixAll.oxc")) {
+          return;
+        }
+        event.waitUntil(
+          client
+            .sendRequest("workspace/executeCommand", {
+              command: "oxc.fixAll",
+              arguments: [{ uri: event.document.uri }],
+            })
+            .catch((err) => client.error("codeActionsOnSave failed", err)),
+        );
+      }),
+    );
+  }
 }
 
 export function createActivate(config: ClientConfig): (context: ExtensionContext) => Promise<void> {
