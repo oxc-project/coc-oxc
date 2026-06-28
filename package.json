@@ -26,7 +26,7 @@
     "@types/node": "^22.15.3",
     "coc.nvim": "0.0.83-next.24",
     "typescript": "^6.0.0",
-    "vite-plus": "^0.1.21"
+    "vite-plus": "^0.2.0"
   },
   "contributes": {
     "configuration": {
