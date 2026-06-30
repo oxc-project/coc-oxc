@@ -133,7 +133,7 @@
   "engines": {
     "coc": "^0.0.82"
   },
-  "packageManager": "pnpm@11.4.0",
+  "packageManager": "pnpm@11.9.0",
   "pnpm": {
     "overrides": {
       "vite": "npm:@voidzero-dev/vite-plus-core@latest",
