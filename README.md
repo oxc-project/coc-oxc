@@ -81,3 +81,11 @@ MIT
 ---
 
 > This extension is built with [create-coc-extension](https://github.com/fannheyward/create-coc-extension)
+
+## ❤ Who's [Sponsoring Oxc](https://github.com/sponsors/Boshen)?
+
+<p align="center">
+  <a href="https://github.com/sponsors/Boshen">
+    <img src="https://raw.githubusercontent.com/Boshen/sponsors/main/sponsors.svg" alt="Our sponsors" />
+  </a>
+</p>
