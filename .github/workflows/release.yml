@@ -47,8 +47,6 @@ jobs:
 
       - run: pnpm run build
 
-      - run: npm install -g npm@latest # For trusted publishing support
-
       - run: pnpm publish --tag latest --provenance --access public
 
       - name: Create GitHub Release
