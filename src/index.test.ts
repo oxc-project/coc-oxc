@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { join } from "path";
 
 const mocks = vi.hoisted(() => {
   const configurationValues: Record<string, Record<string, unknown>> = {};
@@ -182,10 +183,10 @@ describe("extension activation", () => {
       enable: true,
       binPath: "/mock/bin/oxfmt",
     };
-    mocks.existsSync.mockImplementation(
-      (path: string) =>
-        path === "/mock-workspace/node_modules/.bin/oxlint" || path === "/mock/bin/oxfmt",
-    );
+    mocks.existsSync.mockImplementation((path: string) => {
+      const p = path.replace(/\\/g, "/");
+      return p === "/mock-workspace/node_modules/.bin/oxlint" || p === "/mock/bin/oxfmt";
+    });
 
     const { activate } = await import("./index");
     const context = { subscriptions: [] as unknown[] };
@@ -204,7 +205,7 @@ describe("extension activation", () => {
     const [oxlintClient, oxfmtClient] = mocks.createdClients;
     expect(oxlintClient.serverOptions).toMatchObject({
       run: {
-        command: "/mock-workspace/node_modules/.bin/oxlint",
+        command: join("/mock-workspace", "node_modules", ".bin", "oxlint"),
         args: ["--lsp"],
       },
     });
