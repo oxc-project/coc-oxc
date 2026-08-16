@@ -24,7 +24,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
-    "coc.nvim": "0.0.83-next.24",
+    "coc.nvim": "0.0.83-next.25",
     "typescript": "^7.0.0",
     "vite-plus": "^0.2.0"
   },
