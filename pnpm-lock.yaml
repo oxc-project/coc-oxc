@@ -12,8 +12,8 @@ importers:
         specifier: ^22.15.3
         version: 22.19.15
       coc.nvim:
-        specifier: 0.0.83-next.25
-        version: 0.0.83-next.25(@types/node@22.19.15)
+        specifier: 0.0.83-next.26
+        version: 0.0.83-next.26(@types/node@22.19.15)
       typescript:
         specifier: ^7.0.0
         version: 7.0.2
@@ -889,11 +889,11 @@ packages:
     resolution: {integrity: sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg==}
     engines: {node: '>=18'}
 
-  coc.nvim@0.0.83-next.25:
-    resolution: {integrity: sha512-d3efHdvj2kW6E63xWwVXbAdnoGDyFbjxrbVQypMDb1vSa51AqGjvXZrJY8uKdnLMdyDfDP5fdpQPb7GnbUTF0A==}
+  coc.nvim@0.0.83-next.26:
+    resolution: {integrity: sha512-R9bILq6Sb+ULfIfkY9V6/X7WzSfmN2ZjaUgWF6/ic4QcxSgWhrn+oWuZjpMMz+Fj5hePuost1HciI8oL6hI/FA==}
     engines: {node: '>=20.19.0'}
     peerDependencies:
-      '@types/node': ^20.19.39
+      '@types/node': '>=20.19.39 <30'
 
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
@@ -1786,7 +1786,7 @@ snapshots:
 
   chai@6.2.2: {}
 
-  coc.nvim@0.0.83-next.25(@types/node@22.19.15):
+  coc.nvim@0.0.83-next.26(@types/node@22.19.15):
     dependencies:
       '@types/node': 22.19.15
 
