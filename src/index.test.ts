@@ -25,7 +25,13 @@ const mocks = vi.hoisted(() => {
     name: string;
     serverOptions: Record<string, unknown>;
     clientOptions: Record<string, unknown>;
-    restart = vi.fn(async () => undefined);
+    state = 2;
+    dispose = vi.fn(async () => undefined);
+    isRunning = vi.fn(() => this.state === 2);
+    onReady = vi.fn(async (): Promise<void> => undefined);
+    onDidChangeState = vi.fn((_listener: (event: { newState: number }) => void) => ({
+      dispose: vi.fn(),
+    }));
     sendNotification = vi.fn();
     sendRequest = vi.fn(async (_method: string, _params: unknown) => null as unknown);
     error = vi.fn();
@@ -45,6 +51,7 @@ const mocks = vi.hoisted(() => {
   }
 
   const existsSync = vi.fn((_path: string) => false);
+  const readFileSync = vi.fn((_path: string) => "{}");
 
   const commands = {
     registerCommand: vi.fn((name: string, handler: (...args: unknown[]) => unknown) => {
@@ -62,7 +69,7 @@ const mocks = vi.hoisted(() => {
 
   const window = {
     createOutputChannel: vi.fn((name: string) => {
-      const channel = { name, show: vi.fn() };
+      const channel = { name, show: vi.fn(), appendLine: vi.fn(), dispose: vi.fn() };
       outputChannels.push(channel);
       return channel;
     }),
@@ -123,6 +130,8 @@ const mocks = vi.hoisted(() => {
     configurationListeners.length = 0;
     willSaveListeners.length = 0;
 
+    readFileSync.mockReset();
+    readFileSync.mockReturnValue("{}");
     existsSync.mockReset();
     existsSync.mockImplementation((_path: string) => false);
 
@@ -145,6 +154,7 @@ const mocks = vi.hoisted(() => {
     configurationListeners,
     willSaveListeners,
     existsSync,
+    readFileSync,
     commands,
     services,
     window,
@@ -156,10 +166,12 @@ const mocks = vi.hoisted(() => {
 
 vi.mock("node:fs", () => ({
   existsSync: mocks.existsSync,
+  readFileSync: mocks.readFileSync,
 }));
 
 vi.mock("coc.nvim", () => ({
   LanguageClient: mocks.MockLanguageClient,
+  State: { Stopped: 1, Running: 2, Starting: 3, StartFailed: 4 },
   commands: mocks.commands,
   services: mocks.services,
   window: mocks.window,
@@ -327,7 +339,345 @@ describe("extension activation", () => {
 
     expect(mocks.createdClients).toHaveLength(0);
     expect(mocks.registeredClients).toHaveLength(0);
-    expect(mocks.registeredCommands).toHaveLength(0);
-    expect(context.subscriptions).toHaveLength(0);
+    expect(mocks.registeredCommands.map((command) => command.name)).toEqual([
+      "oxlint.showOutputChannel",
+      "oxlint.restartServer",
+    ]);
+    expect(context.subscriptions.length).toBeGreaterThan(0);
+  });
+});
+
+async function changeConfiguration(key: string) {
+  for (const listener of mocks.configurationListeners) {
+    listener({
+      affectsConfiguration: (section) => key === section || key.startsWith(`${section}.`),
+    });
+  }
+  await new Promise<void>((resolve) => setImmediate(resolve));
+}
+
+async function restart(tool = "oxlint") {
+  await mocks.registeredCommands
+    .find((command) => command.name === `${tool}.restartServer`)!
+    .handler();
+}
+
+async function activateVitePlus() {
+  mocks.readFileSync.mockImplementation((path) =>
+    path === "/mock-workspace/package.json" ? '{"devDependencies":{"vite-plus":"*"}}' : "{}",
+  );
+  mocks.existsSync.mockImplementation((path) => path === "/mock-workspace/node_modules/.bin/vp");
+  const { activate } = await import("./index");
+  const context = { subscriptions: [] as Array<{ dispose: () => unknown }> };
+  await activate(context as never);
+  return context;
+}
+
+function serverSettings(client: (typeof mocks.createdClients)[number]) {
+  return (
+    client.clientOptions.initializationOptions as Array<{ options: Record<string, unknown> }>
+  )[0].options;
+}
+
+function requestSettings(client: (typeof mocks.createdClients)[number]) {
+  const middleware = client.clientOptions.middleware as {
+    workspace: {
+      configuration: (params: {
+        items: Array<{ section: string; scopeUri?: string }>;
+      }) => unknown[];
+    };
+  };
+  return middleware.workspace.configuration({
+    items: [
+      { section: "oxc_language_server", scopeUri: "file:///mock-workspace" },
+      { section: "unrelated" },
+    ],
+  });
+}
+
+describe("Vite+ client lifecycle", () => {
+  it("launches lint and fmt subcommands and disables nested config without editing settings", async () => {
+    mocks.configurationValues["oxc.oxlint"].disableNestedConfig = false;
+    mocks.configurationValues["oxc.oxfmt"].disableNestedConfig = false;
+    await activateVitePlus();
+    for (const [index, tool] of ["lint", "fmt"].entries()) {
+      const client = mocks.createdClients[index];
+      expect(client.serverOptions).toMatchObject({
+        run: {
+          command: "/mock-workspace/node_modules/.bin/vp",
+          args: [tool, "--lsp"],
+          options: { cwd: "/mock-workspace" },
+        },
+      });
+      const key = tool === "lint" ? "disableNestedConfig" : "fmt.disableNestedConfig";
+      expect(serverSettings(client)[key]).toBe(true);
+      expect(requestSettings(client)).toEqual([serverSettings(client), null]);
+    }
+    expect(mocks.configurationValues["oxc.oxlint"].disableNestedConfig).toBe(false);
+    expect(mocks.configurationValues["oxc.oxfmt"].disableNestedConfig).toBe(false);
+  });
+
+  it("uses the declaring ancestor as cwd when the editor opens a subdirectory", async () => {
+    mocks.readFileSync.mockImplementation((path) =>
+      path === "/package.json" ? '{"dependencies":{"vite-plus":"*"}}' : "{}",
+    );
+    mocks.existsSync.mockImplementation((path) => path === "/node_modules/.bin/vp");
+    const { activate } = await import("./index");
+    await activate({ subscriptions: [] } as never);
+    expect(mocks.createdClients[0].serverOptions).toMatchObject({ run: { options: { cwd: "/" } } });
+    expect(mocks.createdClients[0].clientOptions).toMatchObject({
+      initializationOptions: [{ workspaceUri: "file:///mock-workspace" }],
+    });
+  });
+
+  it("updates running servers with the same effective configuration as initialization", async () => {
+    await activateVitePlus();
+    const [lint, fmt] = mocks.createdClients;
+    mocks.configurationValues["oxc.oxlint"].run = "onSave";
+    await changeConfiguration("oxc.oxlint.run");
+    await changeConfiguration("oxc.oxfmt.disableNestedConfig");
+    expect(mocks.createdClients).toHaveLength(2);
+    for (const client of [lint, fmt]) {
+      expect(client.sendNotification).toHaveBeenCalledWith("workspace/didChangeConfiguration", {
+        settings: client.clientOptions.initializationOptions,
+      });
+      expect(requestSettings(client)[0]).toEqual(serverSettings(client));
+    }
+    expect(serverSettings(lint)).toMatchObject({ run: "onSave", disableNestedConfig: true });
+    expect(serverSettings(fmt)).toMatchObject({ "fmt.disableNestedConfig": true });
+  });
+
+  it.each(["auto", "oxc"])(
+    "sends startup-time configuration changes after initialization with source %s",
+    async (source) => {
+      mocks.configurationValues["oxc.oxlint"].binarySource = source;
+      await activateVitePlus();
+      if (source === "oxc") {
+        mocks.existsSync.mockImplementation((path) => path.endsWith("/oxlint"));
+        await restart();
+      }
+      const client = mocks.createdClients.find((item) => item.name === "oxlint")!;
+      const initializationOptions = client.clientOptions.initializationOptions;
+      client.state = 3;
+      const ready = Promise.withResolvers<void>();
+      client.onReady.mockReturnValueOnce(ready.promise);
+
+      mocks.configurationValues["oxc.oxlint"].configPath = "/mock/updated.json";
+      await changeConfiguration("oxc.oxlint.configPath");
+      expect(client.sendNotification).not.toHaveBeenCalled();
+      expect(client.onReady).toHaveBeenCalledOnce();
+      expect(client.clientOptions.initializationOptions).not.toBe(initializationOptions);
+
+      client.state = 2;
+      ready.resolve();
+      await vi.waitFor(() => expect(client.sendNotification).toHaveBeenCalledOnce());
+      expect(client.sendNotification).toHaveBeenCalledWith("workspace/didChangeConfiguration", {
+        settings: [
+          {
+            workspaceUri: "file:///mock-workspace",
+            options: expect.objectContaining({
+              configPath: "/mock/updated.json",
+              disableNestedConfig: source === "auto",
+            }),
+          },
+        ],
+      });
+    },
+  );
+
+  it("updates initialization options without waiting for a client that has not started", async () => {
+    await activateVitePlus();
+    const client = mocks.createdClients[0];
+    client.state = 1;
+    mocks.configurationValues["oxc.oxlint"].configPath = "/mock/updated.json";
+    await changeConfiguration("oxc.oxlint.configPath");
+    expect(serverSettings(client).configPath).toBe("/mock/updated.json");
+    expect(client.onReady).not.toHaveBeenCalled();
+    expect(client.sendNotification).not.toHaveBeenCalled();
+    await restart();
+    expect(mocks.createdClients).toHaveLength(3);
+  });
+
+  it("releases the configuration queue after startup fails", async () => {
+    await activateVitePlus();
+    const client = mocks.createdClients[0];
+    client.state = 3;
+    const ready = Promise.withResolvers<void>();
+    client.onReady.mockReturnValueOnce(ready.promise);
+    await changeConfiguration("oxc.oxlint.run");
+    expect(client.onReady).toHaveBeenCalledOnce();
+    client.state = 4;
+    ready.reject(new Error("Startup failed"));
+    await restart();
+    expect(client.sendNotification).not.toHaveBeenCalled();
+    expect(mocks.createdClients).toHaveLength(3);
+  });
+
+  it("does not send a deferred configuration update after deactivation", async () => {
+    const context = await activateVitePlus();
+    const client = mocks.createdClients[0];
+    client.state = 3;
+    const ready = Promise.withResolvers<void>();
+    client.onReady.mockReturnValueOnce(ready.promise);
+    await changeConfiguration("oxc.oxlint.run");
+    const disposal = Promise.all(
+      context.subscriptions.map((subscription) => subscription.dispose()),
+    );
+    client.state = 2;
+    ready.resolve();
+    await disposal;
+    expect(client.sendNotification).not.toHaveBeenCalled();
+    expect(client.dispose).toHaveBeenCalledOnce();
+  });
+
+  it("changes only the selected tool and restores standalone nested-config behavior", async () => {
+    await activateVitePlus();
+    const [lint, fmt] = mocks.createdClients;
+    mocks.existsSync.mockImplementation((path) => path.endsWith("/vp") || path.endsWith("/oxlint"));
+    mocks.configurationValues["oxc.oxlint"].binarySource = "oxc";
+    await changeConfiguration("oxc.oxlint.binarySource");
+    expect(lint.dispose).toHaveBeenCalledOnce();
+    expect(fmt.dispose).not.toHaveBeenCalled();
+    expect(mocks.createdClients).toHaveLength(3);
+    const replacement = mocks.createdClients[2];
+    expect(replacement.serverOptions).toMatchObject({ run: { args: ["--lsp"] } });
+    expect(serverSettings(replacement).disableNestedConfig).toBe(false);
+    expect(requestSettings(replacement)[0]).toEqual(serverSettings(replacement));
+    mocks.configurationValues["oxc.oxlint"].disableNestedConfig = true;
+    await changeConfiguration("oxc.oxlint.disableNestedConfig");
+    expect(serverSettings(replacement).disableNestedConfig).toBe(true);
+  });
+
+  it("re-resolves an explicit vp path and leaves tools with standalone overrides running", async () => {
+    mocks.configurationValues["oxc.oxlint"].binPath = "/custom/oxlint";
+    mocks.configurationValues["oxc.vp"] = { binPath: "/custom/vp" };
+    mocks.existsSync.mockReturnValue(true);
+    const { activate } = await import("./index");
+    await activate({ subscriptions: [] } as never);
+    const [lint, fmt] = mocks.createdClients;
+    mocks.configurationValues["oxc.vp"].binPath = "/new/vp";
+    await changeConfiguration("oxc.vp.binPath");
+    expect(lint.dispose).not.toHaveBeenCalled();
+    expect(fmt.dispose).toHaveBeenCalledOnce();
+    expect(mocks.createdClients[2].serverOptions).toMatchObject({
+      run: { command: "/new/vp", args: ["fmt", "--lsp"] },
+    });
+  });
+
+  it("keeps the standalone source running when the shared vp setting changes", async () => {
+    mocks.configurationValues["oxc.oxlint"].binarySource = "oxc";
+    mocks.configurationValues["oxc.oxfmt"].enable = false;
+    mocks.existsSync.mockImplementation((path) => path.endsWith("/oxlint"));
+    const { activate } = await import("./index");
+    await activate({ subscriptions: [] } as never);
+    await changeConfiguration("oxc.vp.binPath");
+    expect(mocks.createdClients).toHaveLength(1);
+    expect(mocks.createdClients[0].dispose).not.toHaveBeenCalled();
+  });
+
+  it("recovers after a missing install without reloading or silently using standalone", async () => {
+    mocks.configurationValues["oxc.oxlint"].binarySource = "vite-plus";
+    mocks.configurationValues["oxc.oxfmt"].enable = false;
+    mocks.existsSync.mockImplementation((path) => path.endsWith("/oxlint"));
+    const { activate } = await import("./index");
+    await activate({ subscriptions: [] } as never);
+    expect(mocks.createdClients).toHaveLength(0);
+    expect(mocks.window.showErrorMessage).toHaveBeenCalledWith(
+      expect.stringContaining("pnpm install"),
+    );
+    mocks.existsSync.mockImplementation((path) => path.endsWith("/vp"));
+    await restart();
+    expect(mocks.createdClients).toHaveLength(1);
+    expect(mocks.createdClients[0].serverOptions).toMatchObject({
+      run: { args: ["lint", "--lsp"] },
+    });
+  });
+
+  it("surfaces startup failures and permits a fresh client on restart", async () => {
+    await activateVitePlus();
+    const failed = mocks.createdClients[0];
+    failed.onDidChangeState.mock.calls[0][0]({ newState: 4 });
+    expect(mocks.window.showErrorMessage).toHaveBeenCalledWith(
+      expect.stringContaining("upgrade vite-plus"),
+    );
+    await restart();
+    expect(failed.dispose).toHaveBeenCalledOnce();
+    expect(mocks.createdClients[2].name).toBe("oxlint");
+    expect(mocks.registeredCommands).toHaveLength(4);
+  });
+
+  it("refreshes the output channel after restart because Coc disposes client channels", async () => {
+    await activateVitePlus();
+    const firstChannel = mocks.outputChannels[0];
+    await restart();
+    await mocks.registeredCommands
+      .find((command) => command.name === "oxlint.showOutputChannel")!
+      .handler();
+    expect(firstChannel.show).not.toHaveBeenCalled();
+    expect(mocks.outputChannels.at(-1)!.show).toHaveBeenCalledOnce();
+  });
+
+  it("can enable and disable a server after activation", async () => {
+    mocks.configurationValues["oxc.oxlint"].enable = false;
+    await activateVitePlus();
+    expect(mocks.createdClients.map((client) => client.name)).toEqual(["oxfmt"]);
+    mocks.configurationValues["oxc.oxlint"].enable = true;
+    await changeConfiguration("oxc.oxlint.enable");
+    expect(mocks.createdClients[1].name).toBe("oxlint");
+    mocks.configurationValues["oxc.oxlint"].enable = false;
+    await changeConfiguration("oxc.oxlint.enable");
+    expect(mocks.createdClients[1].dispose).toHaveBeenCalledOnce();
+    expect(mocks.createdClients).toHaveLength(2);
+  });
+
+  it("serializes concurrent restarts and releases registrations even if disposal fails", async () => {
+    await activateVitePlus();
+    const registration = mocks.services.registerLanguageClient.mock.results[0].value;
+    mocks.createdClients[0].dispose.mockRejectedValueOnce(new Error("dispose failed"));
+    await Promise.all([restart(), restart()]);
+    expect(registration.dispose).toHaveBeenCalledOnce();
+    expect(mocks.createdClients).toHaveLength(3);
+    expect(mocks.window.showErrorMessage).toHaveBeenCalledWith(
+      expect.stringContaining("dispose failed"),
+    );
+  });
+
+  it("disposes clients and listeners and does not start queued work after deactivation", async () => {
+    const context = await activateVitePlus();
+    const pending = restart();
+    await Promise.all(context.subscriptions.map((subscription) => subscription.dispose()));
+    await pending;
+    expect(mocks.createdClients).toHaveLength(2);
+    for (const client of mocks.createdClients) expect(client.dispose).toHaveBeenCalledOnce();
+    for (const result of mocks.workspace.onDidChangeConfiguration.mock.results)
+      expect(result.value.dispose).toHaveBeenCalledOnce();
+    for (const result of mocks.workspace.onWillSaveTextDocument.mock.results)
+      expect(result.value.dispose).toHaveBeenCalledOnce();
+  });
+});
+
+describe("server launch options", () => {
+  it("quotes Windows executable paths and passes Vite+ arguments separately", async () => {
+    const { createServerOptions } = await import("./common");
+    const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
+    try {
+      Object.defineProperty(process, "platform", { value: "win32" });
+      const options = createServerOptions(
+        { name: "oxlint", languages: [] },
+        {
+          command: "C:\\my project\\node_modules\\.bin\\vp.cmd",
+          cwd: "C:\\my project",
+          vitePlus: true,
+        },
+      );
+      expect(options.run).toMatchObject({
+        command: '"C:\\my project\\node_modules\\.bin\\vp.cmd"',
+        args: ["lint", "--lsp"],
+        options: { cwd: "C:\\my project", shell: true },
+      });
+      expect(options.debug).toBe(options.run);
+    } finally {
+      Object.defineProperty(process, "platform", platform);
+    }
   });
 });
