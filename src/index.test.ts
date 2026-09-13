@@ -25,8 +25,10 @@ const mocks = vi.hoisted(() => {
     name: string;
     serverOptions: Record<string, unknown>;
     clientOptions: Record<string, unknown>;
+    state = 2;
     dispose = vi.fn(async () => undefined);
-    isRunning = vi.fn(() => true);
+    isRunning = vi.fn(() => this.state === 2);
+    onReady = vi.fn(async (): Promise<void> => undefined);
     onDidChangeState = vi.fn((_listener: (event: { newState: number }) => void) => ({
       dispose: vi.fn(),
     }));
@@ -169,7 +171,7 @@ vi.mock("node:fs", () => ({
 
 vi.mock("coc.nvim", () => ({
   LanguageClient: mocks.MockLanguageClient,
-  State: { StartFailed: 4 },
+  State: { Stopped: 1, Running: 2, Starting: 3, StartFailed: 4 },
   commands: mocks.commands,
   services: mocks.services,
   window: mocks.window,
@@ -443,6 +445,89 @@ describe("Vite+ client lifecycle", () => {
     }
     expect(serverSettings(lint)).toMatchObject({ run: "onSave", disableNestedConfig: true });
     expect(serverSettings(fmt)).toMatchObject({ "fmt.disableNestedConfig": true });
+  });
+
+  it.each(["auto", "oxc"])(
+    "sends startup-time configuration changes after initialization with source %s",
+    async (source) => {
+      mocks.configurationValues["oxc.oxlint"].binarySource = source;
+      await activateVitePlus();
+      if (source === "oxc") {
+        mocks.existsSync.mockImplementation((path) => path.endsWith("/oxlint"));
+        await restart();
+      }
+      const client = mocks.createdClients.find((item) => item.name === "oxlint")!;
+      const initializationOptions = client.clientOptions.initializationOptions;
+      client.state = 3;
+      const ready = Promise.withResolvers<void>();
+      client.onReady.mockReturnValueOnce(ready.promise);
+
+      mocks.configurationValues["oxc.oxlint"].configPath = "/mock/updated.json";
+      await changeConfiguration("oxc.oxlint.configPath");
+      expect(client.sendNotification).not.toHaveBeenCalled();
+      expect(client.onReady).toHaveBeenCalledOnce();
+      expect(client.clientOptions.initializationOptions).not.toBe(initializationOptions);
+
+      client.state = 2;
+      ready.resolve();
+      await vi.waitFor(() => expect(client.sendNotification).toHaveBeenCalledOnce());
+      expect(client.sendNotification).toHaveBeenCalledWith("workspace/didChangeConfiguration", {
+        settings: [
+          {
+            workspaceUri: "file:///mock-workspace",
+            options: expect.objectContaining({
+              configPath: "/mock/updated.json",
+              disableNestedConfig: source === "auto",
+            }),
+          },
+        ],
+      });
+    },
+  );
+
+  it("updates initialization options without waiting for a client that has not started", async () => {
+    await activateVitePlus();
+    const client = mocks.createdClients[0];
+    client.state = 1;
+    mocks.configurationValues["oxc.oxlint"].configPath = "/mock/updated.json";
+    await changeConfiguration("oxc.oxlint.configPath");
+    expect(serverSettings(client).configPath).toBe("/mock/updated.json");
+    expect(client.onReady).not.toHaveBeenCalled();
+    expect(client.sendNotification).not.toHaveBeenCalled();
+    await restart();
+    expect(mocks.createdClients).toHaveLength(3);
+  });
+
+  it("releases the configuration queue after startup fails", async () => {
+    await activateVitePlus();
+    const client = mocks.createdClients[0];
+    client.state = 3;
+    const ready = Promise.withResolvers<void>();
+    client.onReady.mockReturnValueOnce(ready.promise);
+    await changeConfiguration("oxc.oxlint.run");
+    expect(client.onReady).toHaveBeenCalledOnce();
+    client.state = 4;
+    ready.reject(new Error("Startup failed"));
+    await restart();
+    expect(client.sendNotification).not.toHaveBeenCalled();
+    expect(mocks.createdClients).toHaveLength(3);
+  });
+
+  it("does not send a deferred configuration update after deactivation", async () => {
+    const context = await activateVitePlus();
+    const client = mocks.createdClients[0];
+    client.state = 3;
+    const ready = Promise.withResolvers<void>();
+    client.onReady.mockReturnValueOnce(ready.promise);
+    await changeConfiguration("oxc.oxlint.run");
+    const disposal = Promise.all(
+      context.subscriptions.map((subscription) => subscription.dispose()),
+    );
+    client.state = 2;
+    ready.resolve();
+    await disposal;
+    expect(client.sendNotification).not.toHaveBeenCalled();
+    expect(client.dispose).toHaveBeenCalledOnce();
   });
 
   it("changes only the selected tool and restores standalone nested-config behavior", async () => {

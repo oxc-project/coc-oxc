@@ -195,12 +195,17 @@ export function createActivate(config: ClientConfig): (context: ExtensionContext
         } else if (event.affectsConfiguration(section)) {
           void enqueue(async () => {
             if (!client || !binary) return;
+            const activeClient = client;
             const settings = [
               { workspaceUri: uri, options: getSettings(config, uri, binary.vitePlus) },
             ];
-            client.clientOptions.initializationOptions = settings;
-            if (client.isRunning()) {
-              await client.sendNotification("workspace/didChangeConfiguration", { settings });
+            activeClient.clientOptions.initializationOptions = settings;
+            // An in-flight initialize request already contains the previous settings.
+            if (activeClient.state === State.Starting) {
+              await activeClient.onReady();
+            }
+            if (!disposed && client === activeClient && activeClient.isRunning()) {
+              await activeClient.sendNotification("workspace/didChangeConfiguration", { settings });
             }
           });
         }
