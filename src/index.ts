@@ -1,6 +1,8 @@
 import { ExtensionContext } from "coc.nvim";
 import { createActivate } from "./common";
 
+export { deactivate } from "./common";
+
 const activateOxlint = createActivate({
   name: "oxlint",
   languages: ["typescript", "javascript", "typescriptreact", "javascriptreact", "vue", "svelte"],
