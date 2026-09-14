@@ -9,7 +9,13 @@ const mocks = vi.hoisted(() => {
     name: string;
     handler: (...args: unknown[]) => unknown;
   }> = [];
-  const outputChannels: Array<{ name: string; show: ReturnType<typeof vi.fn> }> = [];
+  const outputChannels: Array<{
+    name: string;
+    show: ReturnType<typeof vi.fn>;
+    hide: ReturnType<typeof vi.fn>;
+    appendLine: ReturnType<typeof vi.fn>;
+    dispose: ReturnType<typeof vi.fn>;
+  }> = [];
   const configurationListeners: Array<
     (event: { affectsConfiguration: (section: string) => boolean }) => void
   > = [];
@@ -26,7 +32,9 @@ const mocks = vi.hoisted(() => {
     serverOptions: Record<string, unknown>;
     clientOptions: Record<string, unknown>;
     state = 2;
-    dispose = vi.fn(async () => undefined);
+    dispose = vi.fn(async () => {
+      (this.clientOptions.outputChannel as { dispose: () => void }).dispose();
+    });
     isRunning = vi.fn(() => this.state === 2);
     onReady = vi.fn(async (): Promise<void> => undefined);
     onDidChangeState = vi.fn((_listener: (event: { newState: number }) => void) => ({
@@ -69,7 +77,16 @@ const mocks = vi.hoisted(() => {
 
   const window = {
     createOutputChannel: vi.fn((name: string) => {
-      const channel = { name, show: vi.fn(), appendLine: vi.fn(), dispose: vi.fn() };
+      const channel = {
+        name,
+        content: "",
+        append: vi.fn(),
+        appendLine: vi.fn(),
+        clear: vi.fn(),
+        show: vi.fn(),
+        hide: vi.fn(),
+        dispose: vi.fn(),
+      };
       outputChannels.push(channel);
       return channel;
     }),
@@ -606,15 +623,69 @@ describe("Vite+ client lifecycle", () => {
     expect(mocks.registeredCommands).toHaveLength(4);
   });
 
-  it("refreshes the output channel after restart because Coc disposes client channels", async () => {
+  it.each([1, 4])("keeps output usable when a failed client settles in state %s", async (state) => {
     await activateVitePlus();
     const firstChannel = mocks.outputChannels[0];
+    const clientChannel = mocks.createdClients[0].clientOptions.outputChannel as {
+      dispose: () => void;
+      appendLine: (line: string) => void;
+    };
+    clientChannel.dispose();
+    clientChannel.appendLine("startup error");
+    expect(firstChannel.appendLine).toHaveBeenCalledWith("startup error");
+    expect(firstChannel.dispose).not.toHaveBeenCalled();
+    mocks.createdClients[0].state = state;
+    await mocks.registeredCommands
+      .find((command) => command.name === "oxlint.showOutputChannel")!
+      .handler();
+    expect(firstChannel.hide).toHaveBeenCalledOnce();
+    firstChannel.show.mockClear();
     await restart();
     await mocks.registeredCommands
       .find((command) => command.name === "oxlint.showOutputChannel")!
       .handler();
-    expect(firstChannel.show).not.toHaveBeenCalled();
-    expect(mocks.outputChannels.at(-1)!.show).toHaveBeenCalledOnce();
+    expect(firstChannel.show).toHaveBeenCalledOnce();
+    expect(firstChannel.dispose).not.toHaveBeenCalled();
+    expect(mocks.outputChannels).toHaveLength(2);
+  });
+
+  it("waits for pending client shutdown before extension deactivation completes", async () => {
+    const context = await activateVitePlus();
+    const pending = Promise.withResolvers<void>();
+    mocks.createdClients[0].dispose.mockReturnValueOnce(pending.promise);
+    for (const subscription of context.subscriptions) subscription.dispose();
+    const { deactivate } = await import("./index");
+    let completed = false;
+    const stopping = deactivate().then(() => {
+      completed = true;
+    });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(completed).toBe(false);
+    expect(mocks.outputChannels[0].dispose).not.toHaveBeenCalled();
+    pending.resolve();
+    await stopping;
+    await deactivate();
+    for (const channel of mocks.outputChannels) expect(channel.dispose).toHaveBeenCalledOnce();
+    for (const client of mocks.createdClients) expect(client.dispose).toHaveBeenCalledOnce();
+  });
+
+  it("filters edit-triggered diagnostic pulls using the current document run setting", async () => {
+    await activateVitePlus();
+    const options = mocks.createdClients[0].clientOptions.diagnosticPullOptions as {
+      onChange: boolean;
+      onSave: boolean;
+      filter: (document: { uri: string }, mode: string) => boolean;
+    };
+    const document = { uri: "file:///mock-workspace/nested/file.ts" };
+    expect(options).toMatchObject({ onChange: true, onSave: true });
+    expect(options.filter(document, "onType")).toBe(false);
+    mocks.configurationValues["oxc.oxlint"].run = "onSave";
+    expect(options.filter(document, "onType")).toBe(true);
+    expect(options.filter(document, "onSave")).toBe(false);
+    expect(mocks.workspace.getConfiguration).toHaveBeenLastCalledWith("oxc.oxlint", document.uri);
+    mocks.configurationValues["oxc.oxlint"].run = "onType";
+    expect(options.filter(document, "onType")).toBe(false);
+    expect(mocks.createdClients[1].clientOptions).not.toHaveProperty("diagnosticPullOptions");
   });
 
   it("can enable and disable a server after activation", async () => {

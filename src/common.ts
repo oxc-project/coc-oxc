@@ -19,6 +19,28 @@ export interface ClientConfig {
   languages: string[];
 }
 
+const shutdowns = new Set<() => Promise<void>>();
+
+export async function deactivate(): Promise<void> {
+  await Promise.all([...shutdowns].map((shutdown) => shutdown()));
+}
+
+function clientOutputChannel(channel: OutputChannel): OutputChannel {
+  // The extension owns the channel across client failures and restarts.
+  return {
+    name: channel.name,
+    get content() {
+      return channel.content;
+    },
+    append: (value) => channel.append(value),
+    appendLine: (value) => channel.appendLine(value),
+    clear: (keep) => channel.clear(keep),
+    show: (preserveFocus) => channel.show(preserveFocus),
+    hide: () => channel.hide(),
+    dispose: () => {},
+  };
+}
+
 function getSettings(
   config: ClientConfig,
   uri: string,
@@ -65,7 +87,7 @@ function createClient(
 ): LanguageClient {
   const uri = pathToFileURL(root).href;
   const clientOptions: LanguageClientOptions = {
-    outputChannel,
+    outputChannel: clientOutputChannel(outputChannel),
     progressOnInitialization: true,
     documentSelector: config.languages.map((language) => ({ language, scheme: "file" })),
     initializationOptions: [
@@ -82,6 +104,16 @@ function createClient(
       },
     },
   };
+  if (config.name === "oxlint") {
+    clientOptions.diagnosticPullOptions = {
+      onChange: true,
+      onSave: true,
+      filter: (document, mode) =>
+        mode === "onType" &&
+        workspace.getConfiguration("oxc.oxlint", document.uri).get<string>("run", "onType") ===
+          "onSave",
+    };
+  }
   if (config.name === "oxfmt") {
     clientOptions.formatterPriority = workspace
       .getConfiguration("oxc.oxfmt", uri)
@@ -101,7 +133,7 @@ export function createActivate(config: ClientConfig): (context: ExtensionContext
     const root = workspace.root;
     const uri = pathToFileURL(root).href;
     const section = `oxc.${config.name}`;
-    let channel = window.createOutputChannel(config.name);
+    const channel = window.createOutputChannel(config.name);
     let client: LanguageClient | undefined;
     let binary: Binary | undefined;
     let registration: Disposable | undefined;
@@ -126,11 +158,6 @@ export function createActivate(config: ClientConfig): (context: ExtensionContext
       } finally {
         registration?.dispose();
         registration = undefined;
-        // coc.nvim disposes the supplied output channel when a client stops.
-        if (previous && !disposed) {
-          channel.dispose();
-          channel = window.createOutputChannel(config.name);
-        }
       }
     }
 
@@ -177,8 +204,27 @@ export function createActivate(config: ClientConfig): (context: ExtensionContext
       registration = services.registerLanguageClient(client);
     }
 
+    let shutdown: Promise<void> | undefined;
+    const dispose = () => {
+      if (shutdown) return shutdown;
+      disposed = true;
+      shutdown = queue
+        .then(stop)
+        .catch(reportError)
+        .finally(() => {
+          channel.dispose();
+          shutdowns.delete(dispose);
+        });
+      return shutdown;
+    };
+    shutdowns.add(dispose);
+
     context.subscriptions.push(
-      commands.registerCommand(`${config.name}.showOutputChannel`, () => channel.show()),
+      commands.registerCommand(`${config.name}.showOutputChannel`, () => {
+        // Coc can leave an empty buffer after concurrent startup failures.
+        if (!client?.isRunning()) channel.hide();
+        channel.show();
+      }),
       commands.registerCommand(`${config.name}.restartServer`, () => enqueue(start)),
       workspace.onDidChangeConfiguration((event) => {
         const settings = workspace.getConfiguration(section, uri);
@@ -210,15 +256,7 @@ export function createActivate(config: ClientConfig): (context: ExtensionContext
           });
         }
       }),
-      {
-        dispose: () => {
-          disposed = true;
-          return queue
-            .then(stop)
-            .catch(reportError)
-            .finally(() => channel.dispose());
-        },
-      },
+      { dispose },
     );
 
     if (config.name === "oxlint") {
