@@ -1,171 +1,285 @@
-import { existsSync } from "node:fs";
-import { join } from "path";
+import { pathToFileURL } from "node:url";
 import {
+  Disposable,
   Executable,
   ExtensionContext,
   LanguageClient,
   LanguageClientOptions,
   OutputChannel,
-  ServerOptions,
+  State,
   commands,
   services,
   window,
   workspace,
 } from "coc.nvim";
-
-type Optional<T> = T | null;
+import { Binary, BinarySource, findBinary, ToolName } from "./binary";
 
 export interface ClientConfig {
-  name: string;
+  name: ToolName;
   languages: string[];
 }
 
-function findBinary(config: ClientConfig): Optional<string> {
-  const cfg = workspace.getConfiguration(`oxc.${config.name}`);
-  let bin = cfg.get<string>("binPath", "");
-  if (bin && existsSync(bin)) {
-    return bin;
-  }
+const shutdowns = new Set<() => Promise<void>>();
 
-  bin = join(workspace.root, "node_modules", ".bin", config.name);
-  return existsSync(bin) ? bin : null;
+export async function deactivate(): Promise<void> {
+  await Promise.all([...shutdowns].map((shutdown) => shutdown()));
 }
 
-function createServerOptions(command: string): ServerOptions {
+function clientOutputChannel(channel: OutputChannel): OutputChannel {
+  // The extension owns the channel across client failures and restarts.
+  return {
+    name: channel.name,
+    get content() {
+      return channel.content;
+    },
+    append: (value) => channel.append(value),
+    appendLine: (value) => channel.appendLine(value),
+    clear: (keep) => channel.clear(keep),
+    show: (preserveFocus) => channel.show(preserveFocus),
+    hide: () => channel.hide(),
+    dispose: () => {},
+  };
+}
+
+function getSettings(
+  config: ClientConfig,
+  uri: string,
+  vitePlus: boolean,
+): Record<string, unknown> {
+  const settings = JSON.parse(
+    JSON.stringify(workspace.getConfiguration(`oxc.${config.name}`, uri)),
+  );
+  if (config.name === "oxfmt") {
+    return {
+      "fmt.experimental": settings.enable ?? true,
+      ...(settings.binPath ? { "fmt.binPath": settings.binPath } : {}),
+      "fmt.disableNestedConfig": vitePlus || (settings.disableNestedConfig ?? false),
+    };
+  }
+  return { ...settings, disableNestedConfig: vitePlus || (settings.disableNestedConfig ?? false) };
+}
+
+export function createServerOptions(
+  config: ClientConfig,
+  binary: Binary,
+): { run: Executable; debug: Executable } {
+  const isWindows = process.platform === "win32";
   const run: Executable = {
-    command,
-    args: ["--lsp"],
+    command: isWindows ? `"${binary.command}"` : binary.command,
+    args: binary.vitePlus ? [config.name === "oxlint" ? "lint" : "fmt", "--lsp"] : ["--lsp"],
     options: {
+      cwd: binary.cwd,
+      shell: isWindows,
       env: {
         ...process.env,
         RUST_LOG: process.env.RUST_LOG || "info",
       },
     },
   };
-
-  return {
-    run,
-    debug: run,
-  };
+  return { run, debug: run };
 }
 
 function createClient(
   config: ClientConfig,
-  command: string,
+  binary: Binary,
+  root: string,
   outputChannel: OutputChannel,
 ): LanguageClient {
-  const settings: any = JSON.parse(
-    JSON.stringify(workspace.getConfiguration(`oxc.${config.name}`)),
-  );
-  const documentSelector = config.languages.map((language) => ({
-    language,
-    scheme: "file",
-  }));
-
-  const options: Record<string, any> = {};
-  const initializationOptions = [
-    {
-      workspaceUri: `file://${workspace.root}`,
-      options,
-    },
-  ];
+  const uri = pathToFileURL(root).href;
   const clientOptions: LanguageClientOptions = {
-    outputChannel,
+    outputChannel: clientOutputChannel(outputChannel),
     progressOnInitialization: true,
-    documentSelector,
-    initializationOptions,
+    documentSelector: config.languages.map((language) => ({ language, scheme: "file" })),
+    initializationOptions: [
+      { workspaceUri: uri, options: getSettings(config, uri, binary.vitePlus) },
+    ],
+    middleware: {
+      workspace: {
+        configuration: (params) =>
+          params.items.map((item) =>
+            item.section === "oxc_language_server"
+              ? getSettings(config, item.scopeUri ?? uri, binary.vitePlus)
+              : null,
+          ),
+      },
+    },
   };
-
-  if (config.name === "oxfmt") {
-    if (settings.enable !== undefined) {
-      options["fmt.experimental"] = settings.enable;
-    }
-    if (settings.binPath) {
-      options["fmt.binPath"] = settings.binPath;
-    }
-    clientOptions.formatterPriority = settings.formatterPriority ?? 1;
-  } else if (config.name === "oxlint") {
-    Object.assign(options, settings);
-  }
-
-  return new LanguageClient(config.name, config.name, createServerOptions(command), clientOptions);
-}
-
-function configureClient(config: ClientConfig, context: ExtensionContext, client: LanguageClient) {
-  context.subscriptions.push(
-    commands.registerCommand(`${config.name}.restartServer`, async () => {
-      if (!client) {
-        await window.showErrorMessage(`${config.name} client not found`);
-        return;
-      }
-      try {
-        await client.restart();
-        await window.showInformationMessage(`${config.name} server restarted.`);
-      } catch (err) {
-        client.error("Restarting client failed", err);
-      }
-    }),
-  );
-
-  workspace.onDidChangeConfiguration((e) => {
-    if (!e.affectsConfiguration(`oxc.${config.name}`)) {
-      return;
-    }
-
-    const settings: any = JSON.parse(
-      JSON.stringify(workspace.getConfiguration(`oxc.${config.name}`)),
-    );
-    void client.sendNotification("workspace/didChangeConfiguration", { settings });
-  });
-
   if (config.name === "oxlint") {
-    context.subscriptions.push(
-      workspace.onWillSaveTextDocument((event) => {
-        if (!config.languages.includes(event.document.languageId)) {
-          return;
-        }
-        const kinds = workspace
-          .getConfiguration("oxc.oxlint", event.document.uri)
-          .get<string[]>("codeActionsOnSave", []);
-        if (!kinds.includes("source.fixAll.oxc")) {
-          return;
-        }
-        event.waitUntil(
-          client
-            .sendRequest("workspace/executeCommand", {
-              command: "oxc.fixAll",
-              arguments: [{ uri: event.document.uri }],
-            })
-            .catch((err) => client.error("codeActionsOnSave failed", err)),
-        );
-      }),
-    );
+    clientOptions.diagnosticPullOptions = {
+      onChange: true,
+      onSave: true,
+      filter: (document, mode) =>
+        mode === "onType" &&
+        workspace.getConfiguration("oxc.oxlint", document.uri).get<string>("run", "onType") ===
+          "onSave",
+    };
   }
+  if (config.name === "oxfmt") {
+    clientOptions.formatterPriority = workspace
+      .getConfiguration("oxc.oxfmt", uri)
+      .get<number>("formatterPriority", 1);
+  }
+  return new LanguageClient(
+    config.name,
+    config.name,
+    createServerOptions(config, binary),
+    clientOptions,
+  );
 }
 
 export function createActivate(config: ClientConfig): (context: ExtensionContext) => Promise<void> {
-  return async (context: ExtensionContext): Promise<void> => {
-    const cfg = workspace.getConfiguration(`oxc.${config.name}`);
-    const enable = cfg.get<boolean>("enable", true);
-    if (!enable) {
-      return;
-    }
-
-    const command = findBinary(config);
-    if (!command) {
-      return;
-    }
-
+  return async (context) => {
+    // The RFC defines coc-oxc detection at the editor root, not the active file.
+    const root = workspace.root;
+    const uri = pathToFileURL(root).href;
+    const section = `oxc.${config.name}`;
     const channel = window.createOutputChannel(config.name);
+    let client: LanguageClient | undefined;
+    let binary: Binary | undefined;
+    let registration: Disposable | undefined;
+    let stateListener: Disposable | undefined;
+    let disposed = false;
+    let queue = Promise.resolve();
+
+    const reportError = (error: unknown) => {
+      const message = `${config.name}: ${error instanceof Error ? error.message : String(error)}`;
+      channel.appendLine(message);
+      void window.showErrorMessage(message);
+    };
+
+    async function stop() {
+      const previous = client;
+      client = undefined;
+      binary = undefined;
+      stateListener?.dispose();
+      stateListener = undefined;
+      try {
+        await previous?.dispose();
+      } finally {
+        registration?.dispose();
+        registration = undefined;
+      }
+    }
+
+    function enqueue(action: () => Promise<void>): Promise<void> {
+      queue = queue
+        .then(async () => {
+          if (!disposed) await action();
+        })
+        .catch(reportError);
+      return queue;
+    }
+
+    async function start() {
+      await stop();
+      if (disposed) return;
+      const settings = workspace.getConfiguration(section, uri);
+      if (!settings.get<boolean>("enable", true)) return;
+      binary = findBinary(
+        config.name,
+        root,
+        settings.get<string>("binPath", ""),
+        settings.get<BinarySource>("binarySource", "auto"),
+        workspace.getConfiguration("oxc.vp", uri).get<string>("binPath", ""),
+      );
+      if (!binary) {
+        channel.appendLine(
+          `No local ${config.name} binary found. Install it, then run ${config.name}.restartServer.`,
+        );
+        return;
+      }
+      channel.appendLine(
+        `Using ${binary.command}${binary.vitePlus ? ` ${config.name === "oxlint" ? "lint" : "fmt"}` : ""} --lsp (cwd: ${binary.cwd})`,
+      );
+      client = createClient(config, binary, root, channel);
+      if (binary.vitePlus) {
+        stateListener = client.onDidChangeState((event) => {
+          if (event.newState === State.StartFailed) {
+            reportError(
+              `Vite+ failed to start. Check the output and upgrade vite-plus to a version that supports ${config.name === "oxlint" ? "lint" : "fmt"} --lsp, then run ${config.name}.restartServer.`,
+            );
+          }
+        });
+      }
+      registration = services.registerLanguageClient(client);
+    }
+
+    let shutdown: Promise<void> | undefined;
+    const dispose = () => {
+      if (shutdown) return shutdown;
+      disposed = true;
+      shutdown = queue
+        .then(stop)
+        .catch(reportError)
+        .finally(() => {
+          channel.dispose();
+          shutdowns.delete(dispose);
+        });
+      return shutdown;
+    };
+    shutdowns.add(dispose);
 
     context.subscriptions.push(
       commands.registerCommand(`${config.name}.showOutputChannel`, () => {
+        // Coc can leave an empty buffer after concurrent startup failures.
+        if (!client?.isRunning()) channel.hide();
         channel.show();
       }),
+      commands.registerCommand(`${config.name}.restartServer`, () => enqueue(start)),
+      workspace.onDidChangeConfiguration((event) => {
+        const settings = workspace.getConfiguration(section, uri);
+        const usesVpSetting =
+          !settings.get<string>("binPath", "") &&
+          settings.get<BinarySource>("binarySource", "auto") !== "oxc";
+        const needsRestart =
+          ["enable", "binPath", "binarySource", "formatterPriority"].some((key) =>
+            event.affectsConfiguration(`${section}.${key}`),
+          ) ||
+          (usesVpSetting && event.affectsConfiguration("oxc.vp.binPath"));
+        if (needsRestart) {
+          void enqueue(start);
+        } else if (event.affectsConfiguration(section)) {
+          void enqueue(async () => {
+            if (!client || !binary) return;
+            const activeClient = client;
+            const settings = [
+              { workspaceUri: uri, options: getSettings(config, uri, binary.vitePlus) },
+            ];
+            activeClient.clientOptions.initializationOptions = settings;
+            // An in-flight initialize request already contains the previous settings.
+            if (activeClient.state === State.Starting) {
+              await activeClient.onReady();
+            }
+            if (!disposed && client === activeClient && activeClient.isRunning()) {
+              await activeClient.sendNotification("workspace/didChangeConfiguration", { settings });
+            }
+          });
+        }
+      }),
+      { dispose },
     );
 
-    const client = createClient(config, command, channel);
-    configureClient(config, context, client);
-    context.subscriptions.push(services.registerLanguageClient(client));
+    if (config.name === "oxlint") {
+      context.subscriptions.push(
+        workspace.onWillSaveTextDocument((event) => {
+          if (!client?.isRunning() || !config.languages.includes(event.document.languageId)) return;
+          const kinds = workspace
+            .getConfiguration(section, event.document.uri)
+            .get<string[]>("codeActionsOnSave", []);
+          if (!kinds.includes("source.fixAll.oxc")) return;
+          const activeClient = client;
+          event.waitUntil(
+            activeClient
+              .sendRequest("workspace/executeCommand", {
+                command: "oxc.fixAll",
+                arguments: [{ uri: event.document.uri }],
+              })
+              .catch((error) => activeClient.error("codeActionsOnSave failed", error)),
+          );
+        }),
+      );
+    }
+
+    await enqueue(start);
   };
 }

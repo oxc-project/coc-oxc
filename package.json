@@ -51,7 +51,7 @@
         "oxc.oxlint.binPath": {
           "type": "string",
           "default": "",
-          "description": "Path to the `oxlint` binary"
+          "description": "Path to the standalone oxlint binary, relative to the workspace root or absolute. Overrides binarySource and oxc.vp.binPath."
         },
         "oxc.oxlint.configPath": {
           "type": [
@@ -79,12 +79,49 @@
         "oxc.oxfmt.binPath": {
           "type": "string",
           "default": "",
-          "description": "Path to the `oxfmt` binary"
+          "description": "Path to the standalone oxfmt binary, relative to the workspace root or absolute. Overrides binarySource and oxc.vp.binPath."
         },
         "oxc.oxfmt.formatterPriority": {
           "type": "number",
           "default": 1,
           "description": "Priority of the oxfmt formatter when multiple formatters are registered for a language. Only positive values boost; the default of 1 outranks formatters that do not set a priority. To defer to another formatter for a given language, use coc.preferences.formatterExtension instead."
+        },
+        "oxc.oxlint.binarySource": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "vite-plus",
+            "oxc"
+          ],
+          "default": "auto",
+          "description": "Select the oxlint source. auto detects a direct vite-plus dependency; vite-plus selects vp without detection; oxc selects the standalone tool. An explicit binPath has priority."
+        },
+        "oxc.oxlint.disableNestedConfig": {
+          "type": "boolean",
+          "scope": "resource",
+          "default": false,
+          "description": "Disable nested oxlint configuration. Always enabled for servers started through Vite+."
+        },
+        "oxc.oxfmt.binarySource": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "vite-plus",
+            "oxc"
+          ],
+          "default": "auto",
+          "description": "Select the oxfmt source. auto detects a direct vite-plus dependency; vite-plus selects vp without detection; oxc selects the standalone tool. An explicit binPath has priority."
+        },
+        "oxc.oxfmt.disableNestedConfig": {
+          "type": "boolean",
+          "scope": "resource",
+          "default": false,
+          "description": "Disable nested oxfmt configuration. Always enabled for servers started through Vite+."
+        },
+        "oxc.vp.binPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the vp executable, relative to the workspace root or absolute. Selects Vite+ for tools whose binarySource is auto or vite-plus."
         }
       }
     },
