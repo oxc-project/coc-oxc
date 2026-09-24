@@ -13,6 +13,12 @@
 
 > **Note:** This plugin only uses oxlint and oxfmt installed in the respective project; it does not activate globally.
 
+## Vite+
+
+If `vite-plus` is installed in the workspace root, the plugin runs `vp lint --lsp` and `vp fmt --lsp` from it.
+If `vite-plus` is not installed, it falls back to `node_modules/.bin`.
+An explicit `binPath` takes priority.
+
 ## Configurations
 
 ### Oxlint (Linter)

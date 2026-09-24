@@ -20,21 +20,33 @@ export interface ClientConfig {
   languages: string[];
 }
 
-function findBinary(config: ClientConfig): Optional<string> {
+interface ServerCommand {
+  command: string;
+  args: string[];
+}
+
+function findBinary(config: ClientConfig): Optional<ServerCommand> {
   const cfg = workspace.getConfiguration(`oxc.${config.name}`);
   let bin = cfg.get<string>("binPath", "");
   if (bin && existsSync(bin)) {
-    return bin;
+    return { command: bin, args: ["--lsp"] };
+  }
+
+  // Like `.bin` below, only the workspace root is searched.
+  const vp = join(workspace.root, "node_modules", "vite-plus", "bin", "vp");
+  if (existsSync(vp)) {
+    const subcommand = config.name === "oxlint" ? "lint" : "fmt";
+    return { command: process.execPath, args: [vp, subcommand, "--lsp"] };
   }
 
   bin = join(workspace.root, "node_modules", ".bin", config.name);
-  return existsSync(bin) ? bin : null;
+  return existsSync(bin) ? { command: bin, args: ["--lsp"] } : null;
 }
 
-function createServerOptions(command: string): ServerOptions {
+function createServerOptions({ command, args }: ServerCommand): ServerOptions {
   const run: Executable = {
     command,
-    args: ["--lsp"],
+    args,
     options: {
       env: {
         ...process.env,
@@ -51,7 +63,7 @@ function createServerOptions(command: string): ServerOptions {
 
 function createClient(
   config: ClientConfig,
-  command: string,
+  command: ServerCommand,
   outputChannel: OutputChannel,
 ): LanguageClient {
   const settings: any = JSON.parse(

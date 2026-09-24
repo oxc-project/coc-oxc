@@ -331,3 +331,48 @@ describe("extension activation", () => {
     expect(context.subscriptions).toHaveLength(0);
   });
 });
+
+describe("vite-plus detection", () => {
+  const vp = "/mock-workspace/node_modules/vite-plus/bin/vp";
+
+  function existing(...paths: string[]) {
+    mocks.existsSync.mockImplementation((path: string) => paths.includes(path.replace(/\\/g, "/")));
+  }
+
+  async function activateAll() {
+    const { activate } = await import("./index");
+    await activate({ subscriptions: [] as unknown[] } as never);
+    return mocks.createdClients;
+  }
+
+  it("launches vp lint and vp fmt when vite-plus is installed", async () => {
+    existing(vp, "/mock-workspace/node_modules/.bin/oxlint");
+
+    const [oxlintClient, oxfmtClient] = await activateAll();
+
+    expect(oxlintClient.serverOptions).toMatchObject({
+      run: {
+        command: process.execPath,
+        args: [join("/mock-workspace", "node_modules", "vite-plus", "bin", "vp"), "lint", "--lsp"],
+      },
+    });
+    expect(oxfmtClient.serverOptions).toMatchObject({
+      run: {
+        command: process.execPath,
+        args: [join("/mock-workspace", "node_modules", "vite-plus", "bin", "vp"), "fmt", "--lsp"],
+      },
+    });
+  });
+
+  it("prefers an explicit binPath over vite-plus", async () => {
+    mocks.configurationValues["oxc.oxlint"] = { enable: true, binPath: "/mock/bin/oxlint" };
+    mocks.configurationValues["oxc.oxfmt"] = { enable: false };
+    existing(vp, "/mock/bin/oxlint");
+
+    const [oxlintClient] = await activateAll();
+
+    expect(oxlintClient.serverOptions).toMatchObject({
+      run: { command: "/mock/bin/oxlint", args: ["--lsp"] },
+    });
+  });
+});
