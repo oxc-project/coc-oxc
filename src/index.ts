@@ -9,6 +9,7 @@ const activateOxlint = createActivate({
 const activateOxfmt = createActivate({
   name: "oxfmt",
   languages: [
+    "astro",
     "css",
     "graphql",
     "handlebars",
@@ -22,6 +23,7 @@ const activateOxfmt = createActivate({
     "markdown",
     "mdx",
     "scss",
+    "svelte",
     "typescript",
     "typescriptreact",
     "vue",
