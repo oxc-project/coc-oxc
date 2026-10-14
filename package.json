@@ -112,6 +112,7 @@
     ]
   },
   "activationEvents": [
+    "onLanguage:astro",
     "onLanguage:css",
     "onLanguage:graphql",
     "onLanguage:handlebars",
