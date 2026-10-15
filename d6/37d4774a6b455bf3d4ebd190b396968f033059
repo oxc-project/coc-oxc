@@ -1,0 +1,19 @@
+package.json
+  s_cfaabdc83a4f73::t_130ded9f9078cb 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d637d4774a6b455bf3d4ebd190b396968f033059",
+  "prompts": {},
+  "sessions": {
+    "s_cfaabdc83a4f73": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a13cf4-6017-7783-9777-b4b3a4a752a6",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "leaysgur <6259812+leaysgur@users.noreply.github.com>"
+    }
+  }
+}
