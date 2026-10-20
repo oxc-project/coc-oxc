@@ -45,6 +45,7 @@ const mocks = vi.hoisted(() => {
   }
 
   const existsSync = vi.fn((_path: string) => false);
+  const executable = vi.fn((_command: string) => false);
 
   const commands = {
     registerCommand: vi.fn((name: string, handler: (...args: unknown[]) => unknown) => {
@@ -125,6 +126,8 @@ const mocks = vi.hoisted(() => {
 
     existsSync.mockReset();
     existsSync.mockImplementation((_path: string) => false);
+    executable.mockReset();
+    executable.mockImplementation((_command: string) => false);
 
     commands.registerCommand.mockClear();
     services.registerLanguageClient.mockClear();
@@ -145,6 +148,7 @@ const mocks = vi.hoisted(() => {
     configurationListeners,
     willSaveListeners,
     existsSync,
+    executable,
     commands,
     services,
     window,
@@ -161,6 +165,7 @@ vi.mock("node:fs", () => ({
 vi.mock("coc.nvim", () => ({
   LanguageClient: mocks.MockLanguageClient,
   commands: mocks.commands,
+  executable: mocks.executable,
   services: mocks.services,
   window: mocks.window,
   workspace: mocks.workspace,
@@ -374,5 +379,26 @@ describe("vite-plus detection", () => {
     expect(oxlintClient.serverOptions).toMatchObject({
       run: { command: "/mock/bin/oxlint", args: ["--lsp"] },
     });
+  });
+});
+
+describe("global binary fallback", () => {
+  async function activateAll() {
+    const { activate } = await import("./index");
+    await activate({ subscriptions: [] as unknown[] } as never);
+    return mocks.createdClients;
+  }
+
+  it("launches binaries from PATH when nothing is found in the workspace", async () => {
+    mocks.executable.mockImplementation(() => true);
+
+    const [oxlintClient, oxfmtClient] = await activateAll();
+
+    expect(oxlintClient.serverOptions).toMatchObject({ run: { command: "oxlint" } });
+    expect(oxfmtClient.serverOptions).toMatchObject({ run: { command: "oxfmt" } });
+  });
+
+  it("does not start a client when the binary is not on PATH", async () => {
+    expect(await activateAll()).toHaveLength(0);
   });
 });
