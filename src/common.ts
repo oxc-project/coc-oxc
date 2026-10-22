@@ -8,6 +8,7 @@ import {
   OutputChannel,
   ServerOptions,
   commands,
+  executable,
   services,
   window,
   workspace,
@@ -40,7 +41,12 @@ function findBinary(config: ClientConfig): Optional<ServerCommand> {
   }
 
   bin = join(workspace.root, "node_modules", ".bin", config.name);
-  return existsSync(bin) ? { command: bin, args: ["--lsp"] } : null;
+  if (existsSync(bin)) {
+    return { command: bin, args: ["--lsp"] };
+  }
+
+  // Last resort: a globally installed binary, so files outside a project still work.
+  return executable(config.name) ? { command: config.name, args: ["--lsp"] } : null;
 }
 
 function createServerOptions({ command, args }: ServerCommand): ServerOptions {
